@@ -26,7 +26,7 @@ import csv
 from SCons.Script import Action
 
 
-atlas_master = 'atlas_master_v_0_9_5.xlsx'
+atlas_master = 'atlas_master.xlsx'
 
 env = Environment(ENV=os.environ)
 
