@@ -1,0 +1,8 @@
+*
+!.gitignore
+!sconstruct
+!atlas_antarktiki_processing.ipynb
+!volume_II.csv
+!volume_I.csv
+!atlas_master.xlsx
+!README.md

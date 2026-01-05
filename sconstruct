@@ -1,0 +1,511 @@
+#!/usr/bin/env python3
+"""
+SCons build file for atlas georeferencing workflow.
+
+Converting raw tiff scans to smaller jpgs and generating pdf.
+
+Watches tie point files and regenerates georeferenced maps when they change.
+
+Tobias Staal 2025
+"""
+import os
+env = Environment(ENV=os.environ.copy())
+
+from pathlib import Path
+from datetime import datetime
+import numpy as np
+import pandas as pd
+import geopandas as gpd
+import rasterio
+from rasterio.control import GroundControlPoint
+from rasterio.transform import from_gcps
+import pyproj
+from pyproj import CRS
+
+import csv
+from SCons.Script import Action
+
+
+atlas_master = 'atlas_master_v_0_9_5.xlsx'
+
+env = Environment(ENV=os.environ)
+
+# export directory
+export_dir = 'export'
+
+# directory paths
+jpg_large_dir = f'{export_dir}/jpg_large/atlas_antarktiki_I'
+jpg_small_dir = f'{export_dir}/jpg_small/atlas_antarktiki_I'
+pdf_bw_I_dir = f'{export_dir}/pdf_bw/atlas_antarktiki_I'
+pdf_bw_II_dir = f'{export_dir}/pdf_bw/atlas_antarktiki_II'
+
+for d in [jpg_large_dir, jpg_small_dir, pdf_bw_I_dir, pdf_bw_II_dir]:
+    env.Execute(Mkdir(d))
+
+def create_magick_action(command):
+    """Create Action with stable command string for MD5 calculation"""
+    return Action(command, cmdstr=command.replace('$', '$$'))
+
+# build images and PDFs for Volume I
+pdf_I_nodes = {}
+for tiff in Glob('LZW compression TIFF/Atlas Antarktiki I/*.tif'):
+    base_name = os.path.splitext(os.path.basename(str(tiff)))[0]
+
+    # large JPG
+    large_jpg = f'{jpg_large_dir}/{base_name}.jpg'
+    env.Command(
+        target=large_jpg,
+        source=tiff,
+        action=create_magick_action(
+            'magick $SOURCE -define registry:warning=none -compress JPEG '
+            '-quality 90% -level 2%,98% $TARGET'
+        )
+    )
+
+    # small JPG
+    small_jpg = f'{jpg_small_dir}/{base_name}.jpg'
+    env.Command(
+        target=small_jpg,
+        source=tiff,
+        action=create_magick_action(
+            'magick $SOURCE -define registry:warning=none -resize 50% -compress JPEG '
+            '-quality 55% -level 4%,96% $TARGET'
+        )
+    )
+
+    # PDF for OCR
+    pdf = f'{pdf_bw_I_dir}/{base_name}.pdf'
+    node = env.Command(
+        target=pdf,
+        source=tiff,
+        action=create_magick_action(
+            'magick $SOURCE -define registry:warning=none -density 400 -colorspace gray '
+            '-normalize -level 4%,96% -background white -flatten -morphology Close Diamond:1 '
+            '-sharpen 0x1.0 -deskew 40% -quality 75 -compress jpeg $TARGET'
+        )
+    )
+    pdf_I_nodes[base_name] = node[0]
+
+# build OCR PDFs for Volume II
+pdf_II_nodes = {}
+for tiff in Glob('LZW compression TIFF/Atlas Antarktiki II/*.tif'):
+    base_name = os.path.splitext(os.path.basename(str(tiff)))[0]
+    pdf = f'{pdf_bw_II_dir}/{base_name}.pdf'
+    node = env.Command(
+        target=pdf,
+        source=tiff,
+        action=create_magick_action(
+            'magick $SOURCE -define registry:warning=none -density 300 -colorspace gray '
+            '-level 4%,96% -background white -flatten -morphology Close Diamond:1 '
+            '-sharpen 0x1.0 -deskew 40% -quality 75 -compress jpeg $TARGET'
+        )
+    )
+    pdf_II_nodes[base_name] = node[0]
+
+
+# ordering for PDF compilation
+def get_ordered_nodes(csv_filename, node_dict):
+    ordered = []
+    with open(csv_filename, newline='', encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        rows = []
+        for row in reader:
+            raw_path = row.get('Raw path', '').strip()
+            compile_order = row.get('Compile order', '').strip()
+            if raw_path and compile_order.isdigit():
+                base = os.path.splitext(os.path.basename(raw_path))[0]
+                if base in node_dict:
+                    rows.append((int(compile_order), node_dict[base]))
+        rows.sort()
+        ordered = [node for order, node in rows]
+    return ordered
+
+volume_I_csv_file = 'volume_I.csv'
+volume_II_csv_file = 'volume_II.csv'
+
+volume_I_ordered_nodes = get_ordered_nodes(volume_I_csv_file, pdf_I_nodes)
+volume_II_ordered_nodes = get_ordered_nodes(volume_II_csv_file, pdf_II_nodes)
+
+# compile complete PDFs using Ghostscript in the specified order
+env.Command(
+    target=f'{export_dir}/atlas_antarktiki_II_complete.pdf',
+    source=volume_II_ordered_nodes,
+    action='gs -sDEVICE=pdfwrite -dNOPAUSE -dBATCH -dSAFER '
+           '-sOutputFile="$TARGET" -dAutoRotatePages=/None '
+           '-dPDFSETTINGS=/ebook -dCompatibilityLevel=1.4 $SOURCES'
+)
+
+
+# ============================================================================
+# HELPER FUNCTION: Extract CRS from Excel cell
+# ============================================================================
+
+def get_target_crs(crs_value, default_crs=3031):
+    """
+    Extract and validate EPSG code from Excel cell.
+    Returns integer EPSG code or default.
+    """
+    # Check for NaN
+    if pd.isna(crs_value):
+        return default_crs
+
+    # Convert to string and strip whitespace
+    crs_str = str(crs_value).strip()
+
+    # Check for empty strings or sentinel values
+    if crs_str in ['', '-', 'NA', 'N/A', 'None', 'nan']:
+        return default_crs
+
+    try:
+        crs_int = int(crs_str)
+        return crs_int
+    except ValueError:
+        return default_crs
+
+
+# ============================================================================
+# GEOREFERENCING FUNCTION
+# ============================================================================
+
+def georeference_map(source_raster, target_raster, tie_points, target_crs=3031):
+    """
+    Re-georeferences from point vector.
+    Generates a detailed log file with transformation statistics.
+    Returns the path to the log file.
+    """
+
+    # Generate log file path
+    tie_points_path = Path(tie_points)
+    log_file = tie_points_path.parent / f"{tie_points_path.stem}.log"
+
+    # Start collecting log content
+    log_lines = []
+    log_lines.append("=" * 80)
+    log_lines.append("GEOREFERENCING REPORT")
+    log_lines.append("=" * 80)
+    log_lines.append(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    log_lines.append(f"Source Raster: {source_raster}")
+    log_lines.append(f"Target Raster: {target_raster}")
+    log_lines.append(f"Tie Points: {tie_points}")
+    log_lines.append("")
+
+    # Define CRS
+    custom_crs = CRS.from_epsg(target_crs)
+    log_lines.append(f"Target CRS: {custom_crs}")
+    print(f"Using CRS: {custom_crs}")
+
+    # Read tie points
+    gdf = gpd.read_file(tie_points)
+    log_lines.append(f"Number of tie points: {len(gdf)}")
+    print(f"Loaded {len(gdf)} tie points from {tie_points}")
+
+    # Read source raster
+    with rasterio.open(source_raster) as src:
+        data = src.read()
+        log_lines.append(f"Source dimensions: {src.width} x {src.height} pixels")
+        log_lines.append(f"Source bands: {src.count}")
+        print(f"Source raster: {src.width} x {src.height} pixels")
+
+        # Transformer from WGS84 to target CRS
+        transformer = pyproj.Transformer.from_crs("EPSG:4326", custom_crs, always_xy=True)
+
+        gcps = []
+        residuals = []
+
+        log_lines.append("")
+        log_lines.append("-" * 80)
+        log_lines.append("CONTROL POINTS")
+        log_lines.append("-" * 80)
+        log_lines.append(f"{'ID':<5} {'Pixel X':<10} {'Pixel Y':<10} {'Map X':<12} {'Map Y':<12} {'Target X':<12} {'Target Y':<12}")
+        log_lines.append("-" * 80)
+
+        for idx, row in gdf.iterrows():
+            # Current (incorrect) position in lat/lon
+            curr_lon, curr_lat = row.geometry.x, row.geometry.y
+            curr_x, curr_y = transformer.transform(curr_lon, curr_lat)
+
+            # Pixel position of current location
+            pix_col, pix_row = ~src.transform * (curr_x, curr_y)
+
+            # Target (correct) position in lat/lon
+            tgt_lon, tgt_lat = row["lon"], row["lat"]
+            tgt_x, tgt_y = transformer.transform(tgt_lon, tgt_lat)
+
+            gcps.append(
+                GroundControlPoint(row=pix_row, col=pix_col, x=tgt_x, y=tgt_y, z=0)
+            )
+
+            # Store for residual calculation later
+            residuals.append({
+                'idx': idx,
+                'pix_col': pix_col,
+                'pix_row': pix_row,
+                'curr_x': curr_x,
+                'curr_y': curr_y,
+                'tgt_x': tgt_x,
+                'tgt_y': tgt_y
+            })
+
+            log_line = f"{idx+1:<5} {pix_col:<10.1f} {pix_row:<10.1f} {curr_x:<12.0f} {curr_y:<12.0f} {tgt_x:<12.0f} {tgt_y:<12.0f}"
+            log_lines.append(log_line)
+
+            # print(
+            #     f"Point {idx+1}: pixel({pix_col:.1f},{pix_row:.1f}) "
+            #     f"-> EPSG{target_crs} current({curr_x:.0f},{curr_y:.0f}) "
+            #     f"target({tgt_x:.0f},{tgt_y:.0f})"
+            # )
+
+        # Calculate new transform
+        new_transform = from_gcps(gcps)
+
+        # Calculate residuals using the new transform
+        log_lines.append("")
+        log_lines.append("-" * 80)
+        log_lines.append("RESIDUAL ANALYSIS")
+        log_lines.append("-" * 80)
+        log_lines.append(f"{'ID':<5} {'dX (m)':<12} {'dY (m)':<12} {'Residual (m)':<15}")
+        log_lines.append("-" * 80)
+
+        residual_errors = []
+        dx_list = []
+        dy_list = []
+
+        for res in residuals:
+            # Forward transform: pixel -> map coordinates using new transform
+            predicted_x, predicted_y = new_transform * (res['pix_col'], res['pix_row'])
+
+            # Calculate residuals (difference between predicted and target)
+            dx = predicted_x - res['tgt_x']
+            dy = predicted_y - res['tgt_y']
+            residual = np.sqrt(dx**2 + dy**2)
+
+            residual_errors.append(residual)
+            dx_list.append(dx)
+            dy_list.append(dy)
+
+            log_lines.append(f"{res['idx']+1:<5} {dx:<12.2f} {dy:<12.2f} {residual:<15.2f}")
+
+        # Calculate statistics
+        residual_errors = np.array(residual_errors)
+        dx_array = np.array(dx_list)
+        dy_array = np.array(dy_list)
+
+        rmse = np.sqrt(np.mean(residual_errors**2))
+        rmse_x = np.sqrt(np.mean(dx_array**2))
+        rmse_y = np.sqrt(np.mean(dy_array**2))
+        mean_error = np.mean(residual_errors)
+        max_error = np.max(residual_errors)
+        min_error = np.min(residual_errors)
+        std_error = np.std(residual_errors)
+
+        log_lines.append("-" * 80)
+        log_lines.append("")
+        log_lines.append("TRANSFORMATION STATISTICS")
+        log_lines.append("-" * 80)
+        log_lines.append(f"Transformation type: Polynomial (affine)")
+        log_lines.append(f"Number of GCPs used: {len(gcps)}")
+        log_lines.append("")
+        log_lines.append("Residual Errors:")
+        log_lines.append(f"  Mean error:     {mean_error:10.2f} m")
+        log_lines.append(f"  RMSE (total):   {rmse:10.2f} m")
+        log_lines.append(f"  RMSE X:         {rmse_x:10.2f} m")
+        log_lines.append(f"  RMSE Y:         {rmse_y:10.2f} m")
+        log_lines.append(f"  Std deviation:  {std_error:10.2f} m")
+        log_lines.append(f"  Maximum error:  {max_error:10.2f} m")
+        log_lines.append(f"  Minimum error:  {min_error:10.2f} m")
+
+        # Transform parameters
+        log_lines.append("")
+        log_lines.append("Transformation Matrix:")
+        log_lines.append(f"  a (scale X):    {new_transform.a:15.6f}")
+        log_lines.append(f"  b (rotation):   {new_transform.b:15.6f}")
+        log_lines.append(f"  c (translation X): {new_transform.c:15.2f}")
+        log_lines.append(f"  d (rotation):   {new_transform.d:15.6f}")
+        log_lines.append(f"  e (scale Y):    {new_transform.e:15.6f}")
+        log_lines.append(f"  f (translation Y): {new_transform.f:15.2f}")
+
+        # Derived metrics
+        pixel_size_x = abs(new_transform.a)
+        pixel_size_y = abs(new_transform.e)
+        rotation = np.degrees(np.arctan2(new_transform.b, new_transform.a))
+
+        log_lines.append("")
+        log_lines.append("Derived Parameters:")
+        log_lines.append(f"  Pixel size X:   {pixel_size_x:10.2f} m/pixel")
+        log_lines.append(f"  Pixel size Y:   {pixel_size_y:10.2f} m/pixel")
+        log_lines.append(f"  Rotation:       {rotation:10.4f} degrees")
+
+        # Quality assessment
+        log_lines.append("")
+        log_lines.append("QUALITY ASSESSMENT")
+        log_lines.append("-" * 80)
+        if rmse < 100:
+            quality = "EXCELLENT"
+        elif rmse < 500:
+            quality = "GOOD"
+        elif rmse < 1000:
+            quality = "ACCEPTABLE"
+        else:
+            quality = "POOR"
+        log_lines.append(f"Overall quality: {quality} (RMSE: {rmse:.2f} m)")
+
+        if len(gcps) < 4:
+            log_lines.append("WARNING: Less than 4 GCPs used. Consider adding more points.")
+
+        if max_error > 3 * mean_error:
+            log_lines.append(f"WARNING: Point {np.argmax(residual_errors)+1} has unusually high residual.")
+            log_lines.append("         Consider checking this control point.")
+
+        log_lines.append("")
+        log_lines.append("=" * 80)
+
+        # Write log file
+        with open(log_file, 'w') as f:
+            f.write('\n'.join(log_lines))
+
+        print(f"\nLog file written to: {log_file}")
+        print(f"RMSE: {rmse:.2f} m")
+
+        # Write georeferenced raster
+        profile = src.profile.copy()
+        profile.update(crs=custom_crs, transform=new_transform)
+
+        with rasterio.open(target_raster, "w", **profile) as dst:
+            dst.write(data)
+
+    print(f"Georeferenced raster saved to {target_raster}")
+    return str(log_file)
+
+
+# ============================================================================
+# SCons CONFIGURATION
+# ============================================================================
+
+env = Environment(ENV=os.environ.copy())
+
+# Configuration
+ATLAS_DIR = Path('atlas')
+DEFAULT_CRS = 3031
+
+# ============================================================================
+# BUILDER FUNCTION
+# ============================================================================
+
+def georef_builder(target, source, env):
+    """
+    SCons builder that calls georeference_map.
+
+    target[0]: log file (output)
+    target[1]: georeferenced raster in maps/ (output)
+    source[0]: GPKG tie points file (input)
+    source[1]: ungeoreferenced TIFF in _georeferencing/ (input)
+    env: SCons environment (used to pass target_crs)
+    """
+    tie_points = str(source[0])
+    source_raster = str(source[1])
+    target_raster = str(target[1])
+
+    # Get CRS from environment variable (set by build_task)
+    crs = env.get('TARGET_CRS', DEFAULT_CRS)
+
+    try:
+        log_file = georeference_map(source_raster, target_raster, tie_points, target_crs=crs)
+        print(f"OK: Georeferenced {Path(source_raster).name}")
+        return 0
+    except Exception as e:
+        print(f"ERROR: Georeferencing {Path(source_raster).name}: {e}")
+        return 1
+
+
+# Create the builder
+georef_action = Action(georef_builder, "Georeferencing $SOURCE")
+georef_builder_obj = Builder(action=georef_action)
+env.Append(BUILDERS={'Georef': georef_builder_obj})
+
+
+# ============================================================================
+# FIND AND BUILD TARGETS FROM EXCEL
+# ============================================================================
+
+# Read master Excel file
+try:
+    df = pd.read_excel(atlas_master)
+    print(f"Loaded {atlas_master} with {len(df)} rows")
+except Exception as e:
+    print(f"ERROR: Could not load {atlas_master}: {e}")
+    df = pd.DataFrame()
+
+# Parse and explode paths from tiepoint_path and raw_path columns
+if not df.empty and 'tiepoint_path' in df.columns and 'raw_path' in df.columns:
+
+    # Combine tiepoint_path and raw_path for processing
+    build_tasks = []
+
+    for idx, row in df.iterrows():
+        tiepoint_paths = row['tiepoint_path']
+        raw_paths = row['raw_path']
+
+        # Skip if either is missing or '-'
+        if pd.isna(tiepoint_paths) or tiepoint_paths == '-' or \
+           pd.isna(raw_paths) or raw_paths == '-':
+            continue
+
+        # Extract target CRS for this row
+        target_crs = get_target_crs(row.get('Target crs', DEFAULT_CRS), DEFAULT_CRS)
+
+        # Split comma-separated values
+        tiepoint_list = [p.strip() for p in str(tiepoint_paths).split(',')]
+        raw_list = [p.strip() for p in str(raw_paths).split(',')]
+
+        # Should be same length
+        if len(tiepoint_list) != len(raw_list):
+            print(f"WARNING: Row {idx} has mismatched tiepoint/raw path counts")
+            continue
+
+        # Process each pair
+        for tiepoint_path, raw_path in zip(tiepoint_list, raw_list):
+            tiepoint_path = Path(tiepoint_path)
+            raw_path = Path(raw_path)
+
+            # Validate paths exist
+            if not tiepoint_path.exists():
+                print(f"WARNING: Tiepoint file not found: {tiepoint_path}")
+                continue
+
+            if not raw_path.exists():
+                print(f"WARNING: Raw raster file not found: {raw_path}")
+                continue
+
+            stem = tiepoint_path.stem
+
+            # Target paths
+            target_tiff = tiepoint_path.parent.parent / f"{stem}.tiff"
+            target_log = tiepoint_path.parent / f"{stem}.log"
+
+            build_tasks.append({
+                'tiepoint': str(tiepoint_path),
+                'raw': str(raw_path),
+                'target_log': str(target_log),
+                'target_tiff': str(target_tiff),
+                'stem': stem,
+                'target_crs': target_crs
+            })
+
+    print(f"\nFound {len(build_tasks)} build tasks from Excel")
+
+    # Register all build targets
+    for task in sorted(build_tasks, key=lambda x: x['stem']):
+        # Create a new environment for this task with the specific CRS
+        task_env = env.Clone()
+        task_env['TARGET_CRS'] = task['target_crs']
+
+        task_env.Georef(
+            [task['target_log'], task['target_tiff']],
+            [task['tiepoint'], task['raw']]
+        )
+        print(f"  Configured: {task['stem']} (EPSG:{task['target_crs']})")
+
+else:
+    print("ERROR: Could not find 'tiepoint_path' and/or 'raw_path' columns in Excel file")
+
+print("\n" + "=" * 80)
