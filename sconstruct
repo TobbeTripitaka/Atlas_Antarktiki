@@ -429,7 +429,7 @@ env.Append(BUILDERS={'Georef': georef_builder_obj})
 
 # Read master Excel file
 try:
-    df = pd.read_excel(atlas_master)
+    df = pd.read_excel(atlas_master, dtype={"Target crs": "string"})
     print(f"Loaded {atlas_master} with {len(df)} rows")
 except Exception as e:
     print(f"ERROR: Could not load {atlas_master}: {e}")
@@ -451,7 +451,7 @@ if not df.empty and 'tiepoint_path' in df.columns and 'raw_path' in df.columns:
             continue
 
         # Extract target CRS for this row
-        target_crs = get_target_crs(row.get('Target crs', DEFAULT_CRS), DEFAULT_CRS)
+        target_crs = get_target_crs(row.get('Target crs', DEFAULT_CRS))
 
         # Split comma-separated values
         tiepoint_list = [p.strip() for p in str(tiepoint_paths).split(',')]
@@ -503,7 +503,7 @@ if not df.empty and 'tiepoint_path' in df.columns and 'raw_path' in df.columns:
             [task['target_log'], task['target_tiff']],
             [task['tiepoint'], task['raw']]
         )
-        print(f"  Configured: {task['stem']} (EPSG:{task['target_crs']})")
+        # print(f"  Configured: {task['stem']} (EPSG:{task['target_crs']})")
 
 else:
     print("ERROR: Could not find 'tiepoint_path' and/or 'raw_path' columns in Excel file")
