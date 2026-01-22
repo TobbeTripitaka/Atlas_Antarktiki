@@ -15,13 +15,6 @@
 !img/fig_1a.jpg
 
 # --- atlas rules ---
-
-# Ensure atlas/ itself is not ignored so Git descends into it
-!atlas/
-
-# Ignore everything under atlas at any depth
-atlas/**
-
 # Re-include only .gpkg, .log, .txt files anywhere under atlas
 !atlas/**/*.gpkg
 !atlas/**/*.log
