@@ -1,7 +1,7 @@
-# Ignore everything at top level
+# Ignore everything by default
 *
 
-# Whitelist specific files at root
+# Root-level exceptions (as before)
 !.gitignore
 !sconstruct
 !atlas_antarktiki_processing.ipynb
@@ -10,19 +10,19 @@
 !atlas_master.xlsx
 !README.md
 
-# Whitelist the img/ directory and one specific image
+# img rules (unchanged)
 !img/
 !img/fig_1a.jpg
 
-# --- atlas rules ---
+# ---- atlas rules (minimal) ----
 
-# First, un-ignore the atlas directory itself so Git will traverse it
+# Do NOT ignore the atlas directory itself
 !atlas/
 
-# Then ignore everything inside atlas
-atlas/*
+# Ignore everything under atlas
+atlas/**
 
-# Re-include only .gpkg, .log, .txt files anywhere under atlas
+# Re-include only these extensions under atlas
 !atlas/**/*.gpkg
 !atlas/**/*.log
 !atlas/**/*.txt
