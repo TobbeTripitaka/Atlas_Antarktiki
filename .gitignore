@@ -18,4 +18,4 @@
 # Re-include only .gpkg, .log, .txt files anywhere under atlas
 !atlas/**/*.gpkg
 !atlas/**/*.log
-!atlas/**/**/*.txt
+!atlas/**/**/**/*.txt
