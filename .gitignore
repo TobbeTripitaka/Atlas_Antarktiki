@@ -16,6 +16,11 @@
 
 # --- atlas rules ---
 
+# First, un-ignore the atlas directory itself so Git will traverse it
+!atlas/
+
+# Then ignore everything inside atlas
+atlas/*
 
 # Re-include only .gpkg, .log, .txt files anywhere under atlas
 !atlas/**/*.gpkg
