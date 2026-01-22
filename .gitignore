@@ -9,3 +9,11 @@
 
 !img/
 !img/fig_1a.jpg
+
+
+# In atlas/: allow only .gpkg, .log, and .txt files, keep rasters ignored here
+!atlas/
+atlas/**
+!atlas/**/*.gpkg
+!atlas/**/*.log
+!atlas/**/*.txt
