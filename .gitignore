@@ -14,9 +14,7 @@
 !img/
 !img/fig_1a.jpg
 
-# --- atlas rules ---
 
-# 1) Allow the atlas directory itself
 !atlas/
 
 # 2) Allow desired extensions anywhere under atlas
@@ -24,6 +22,3 @@
 !atlas/**/*.log
 !atlas/**/*.txt
 
-# 3) Ignore everything else under atlas
-atlas/*
-atlas/**/*
