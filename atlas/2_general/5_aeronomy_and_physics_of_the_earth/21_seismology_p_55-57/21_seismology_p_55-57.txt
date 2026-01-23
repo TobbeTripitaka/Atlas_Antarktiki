@@ -1,0 +1,14 @@
+Seismology (P.55-57)
+
+Plates: 
+55,56,57
+
+Plates Scans:
+P.55: Atlas_Antarktiki_I_0092.jpg
+P.55: Atlas_Antarktiki_I_0093.jpg
+P.56: Atlas_Antarktiki_I_0092.jpg
+P.56: Atlas_Antarktiki_I_0093.jpg
+P.57: Atlas_Antarktiki_I_0094.jpg
+
+Title Plates Scans:
+Atlas_Antarktiki_I_0091.jpg

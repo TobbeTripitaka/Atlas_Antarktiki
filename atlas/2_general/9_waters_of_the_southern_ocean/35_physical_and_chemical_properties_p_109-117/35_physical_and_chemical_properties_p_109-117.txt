@@ -1,0 +1,20 @@
+Physical and Chemical Properties (P.109-117)
+
+Plates: 
+109,110,111,112,113,114,115,116,117
+
+Plates Scans:
+P.109: Atlas_Antarktiki_I_0164.jpg
+P.110: Atlas_Antarktiki_I_0165.jpg
+P.111: Atlas_Antarktiki_I_0166.jpg
+P.112: Atlas_Antarktiki_I_0168.jpg
+P.113: Atlas_Antarktiki_I_0169.jpg
+P.114: Atlas_Antarktiki_I_0170.jpg
+P.115: Atlas_Antarktiki_I_0172.jpg
+P.116: Atlas_Antarktiki_I_0173.jpg
+P.117: Atlas_Antarktiki_I_0174.jpg
+
+Title Plates Scans:
+Atlas_Antarktiki_I_0163.jpg
+Atlas_Antarktiki_I_0167.jpg
+Atlas_Antarktiki_I_0171.jpg

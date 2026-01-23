@@ -1,0 +1,21 @@
+Geomagnetism (P.34-41)
+
+Plates: 
+34,35,36,37,38,39,40,41
+
+Plates Scans:
+P.34: Atlas_Antarktiki_I_0064.jpg
+P.35: Atlas_Antarktiki_I_0065.jpg
+P.36: Atlas_Antarktiki_I_0066.jpg
+P.37: Atlas_Antarktiki_I_0068.jpg
+P.38: Atlas_Antarktiki_I_0069.jpg
+P.39: Atlas_Antarktiki_I_0070.jpg
+P.40: Atlas_Antarktiki_I_0072.jpg
+P.40: Atlas_Antarktiki_I_0073.jpg
+P.41: Atlas_Antarktiki_I_0072.jpg
+P.41: Atlas_Antarktiki_I_0073.jpg
+
+Title Plates Scans:
+Atlas_Antarktiki_I_0063.jpg
+Atlas_Antarktiki_I_0067.jpg
+Atlas_Antarktiki_I_0071.jpg

@@ -1,0 +1,14 @@
+Oceanographic Coverage and Boundaries (P.97-99)
+
+Plates: 
+97,98,99
+
+Plates Scans:
+P.97: Atlas_Antarktiki_I_0148.jpg
+P.97: Atlas_Antarktiki_I_0149.jpg
+P.98: Atlas_Antarktiki_I_0148.jpg
+P.98: Atlas_Antarktiki_I_0149.jpg
+P.99: Atlas_Antarktiki_I_0150.jpg
+
+Title Plates Scans:
+Atlas_Antarktiki_I_0147.jpg

@@ -1,0 +1,19 @@
+Variable Magnetic Field and Earth Currents (P.42-48)
+
+Plates: 
+42,43,44,45,46,47,48
+
+Plates Scans:
+P.42: Atlas_Antarktiki_I_0074.jpg
+P.43: Atlas_Antarktiki_I_0076.jpg
+P.44: Atlas_Antarktiki_I_0077.jpg
+P.45: Atlas_Antarktiki_I_0078.jpg
+P.46: Atlas_Antarktiki_I_0080.jpg
+P.46: Atlas_Antarktiki_I_0081.jpg
+P.47: Atlas_Antarktiki_I_0080.jpg
+P.47: Atlas_Antarktiki_I_0081.jpg
+P.48: Atlas_Antarktiki_I_0082.jpg
+
+Title Plates Scans:
+Atlas_Antarktiki_I_0075.jpg
+Atlas_Antarktiki_I_0079.jpg

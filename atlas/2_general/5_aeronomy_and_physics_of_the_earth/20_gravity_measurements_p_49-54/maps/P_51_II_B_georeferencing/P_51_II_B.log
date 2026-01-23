@@ -1,0 +1,70 @@
+================================================================================
+GEOREFERENCING REPORT
+================================================================================
+Date: 2026-01-09 00:02:00
+Source Raster: atlas/2_general/5_aeronomy_and_physics_of_the_earth/20_gravity_measurements_p_49-54/maps/P_51_II_B_georeferencing/P_51_II_B.tiff
+Target Raster: atlas/2_general/5_aeronomy_and_physics_of_the_earth/20_gravity_measurements_p_49-54/maps/P_51_II_B.tiff
+Tie Points: atlas/2_general/5_aeronomy_and_physics_of_the_earth/20_gravity_measurements_p_49-54/maps/P_51_II_B_georeferencing/P_51_II_B.gpkg
+
+Target CRS: EPSG:3031
+Number of tie points: 6
+Source dimensions: 3474 x 1964 pixels
+Source bands: 3
+
+--------------------------------------------------------------------------------
+CONTROL POINTS
+--------------------------------------------------------------------------------
+ID    Pixel X    Pixel Y    Map X        Map Y        Target X     Target Y    
+--------------------------------------------------------------------------------
+1     3329.8     441.6      3209458      1088980      2113135      -1773131    
+2     373.4      391.6      -2747622     1189609      2592144      -943463     
+3     1836.3     1167.5     200062       -373743      2143689      -1237660    
+4     505.3      1254.8     -2481875     -549703      2326039      -846609     
+5     3169.3     1302.3     2886030      -645467      1896205      -1591105    
+6     1851.3     290.3      230223       1393784      2388933      -1379251    
+
+--------------------------------------------------------------------------------
+RESIDUAL ANALYSIS
+--------------------------------------------------------------------------------
+ID    dX (m)       dY (m)       Residual (m)   
+--------------------------------------------------------------------------------
+1     846.89       187.56       867.41         
+2     -401.50      -1166.26     1233.44        
+3     -714.54      1174.90      1375.12        
+4     983.30       291.32       1025.55        
+5     -404.19      -1207.25     1273.11        
+6     -309.97      719.73       783.64         
+--------------------------------------------------------------------------------
+
+TRANSFORMATION STATISTICS
+--------------------------------------------------------------------------------
+Transformation type: Polynomial (affine)
+Number of GCPs used: 6
+
+Residual Errors:
+  Mean error:        1093.04 m
+  RMSE (total):      1114.40 m
+  RMSE X:             660.22 m
+  RMSE Y:             897.78 m
+  Std deviation:      217.14 m
+  Maximum error:     1375.12 m
+  Minimum error:      783.64 m
+
+Transformation Matrix:
+  a (scale X):        -156.825690
+  b (rotation):       -282.713059
+  c (translation X):      2761014.72
+  d (rotation):       -282.829053
+  e (scale Y):         157.105933
+  f (translation Y):      -900547.63
+
+Derived Parameters:
+  Pixel size X:       156.83 m/pixel
+  Pixel size Y:       157.11 m/pixel
+  Rotation:        -119.0179 degrees
+
+QUALITY ASSESSMENT
+--------------------------------------------------------------------------------
+Overall quality: POOR (RMSE: 1114.40 m)
+
+================================================================================

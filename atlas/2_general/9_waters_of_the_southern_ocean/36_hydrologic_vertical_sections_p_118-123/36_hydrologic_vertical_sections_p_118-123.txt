@@ -1,0 +1,16 @@
+Hydrologic Vertical Sections (P.118-123)
+
+Plates: 
+118,119,120,121,122,123
+
+Plates Scans:
+P.118: Atlas_Antarktiki_I_0176.jpg
+P.119: Atlas_Antarktiki_I_0177.jpg
+P.120: Atlas_Antarktiki_I_0178.jpg
+P.121: Atlas_Antarktiki_I_0180.jpg
+P.122: Atlas_Antarktiki_I_0181.jpg
+P.123: Atlas_Antarktiki_I_0182.jpg
+
+Title Plates Scans:
+Atlas_Antarktiki_I_0175.jpg
+Atlas_Antarktiki_I_0179.jpg

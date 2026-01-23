@@ -1,0 +1,12 @@
+Air Temperatures (P.76-78)
+
+Plates: 
+76,77,78
+
+Plates Scans:
+P.76: Atlas_Antarktiki_I_0120.jpg
+P.77: Atlas_Antarktiki_I_0121.jpg
+P.78: Atlas_Antarktiki_I_0122.jpg
+
+Title Plates Scans:
+Atlas_Antarktiki_I_0119.jpg

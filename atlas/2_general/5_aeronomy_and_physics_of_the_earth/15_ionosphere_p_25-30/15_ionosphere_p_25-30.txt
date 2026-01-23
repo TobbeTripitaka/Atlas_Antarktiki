@@ -1,0 +1,16 @@
+Ionosphere (P.25-30)
+
+Plates: 
+25,26,27,28,29,30
+
+Plates Scans:
+P.25: Atlas_Antarktiki_I_0052.jpg
+P.26: Atlas_Antarktiki_I_0053.jpg
+P.27: Atlas_Antarktiki_I_0054.jpg
+P.28: Atlas_Antarktiki_I_0056.jpg
+P.29: Atlas_Antarktiki_I_0057.jpg
+P.30: Atlas_Antarktiki_I_0058.jpg
+
+Title Plates Scans:
+Atlas_Antarktiki_I_0051.jpg
+Atlas_Antarktiki_I_0055.jpg

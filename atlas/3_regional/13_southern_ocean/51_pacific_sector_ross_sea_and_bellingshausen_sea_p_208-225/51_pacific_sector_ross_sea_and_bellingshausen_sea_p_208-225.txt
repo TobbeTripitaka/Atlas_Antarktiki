@@ -1,0 +1,44 @@
+Pacific Sector, Ross Sea, and Bellingshausen Sea (P.208-225)
+
+Plates: 
+208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225
+
+Plates Scans:
+P.208: Atlas_Antarktiki_I_0299.jpg
+P.208: Atlas_Antarktiki_I_0300.jpg
+P.208: Atlas_Antarktiki_I_0301.jpg
+P.209: Atlas_Antarktiki_I_0299.jpg
+P.209: Atlas_Antarktiki_I_0300.jpg
+P.209: Atlas_Antarktiki_I_0301.jpg
+P.210: Atlas_Antarktiki_I_0302.jpg
+P.211: Atlas_Antarktiki_I_0304.jpg
+P.211: Atlas_Antarktiki_I_0305.jpg
+P.211: Atlas_Antarktiki_I_0306.jpg
+P.212: Atlas_Antarktiki_I_0304.jpg
+P.212: Atlas_Antarktiki_I_0305.jpg
+P.212: Atlas_Antarktiki_I_0306.jpg
+P.213: Atlas_Antarktiki_I_0307.jpg
+P.214: Atlas_Antarktiki_I_0309.jpg
+P.214: Atlas_Antarktiki_I_0310.jpg
+P.214: Atlas_Antarktiki_I_0311.jpg
+P.215: Atlas_Antarktiki_I_0309.jpg
+P.215: Atlas_Antarktiki_I_0310.jpg
+P.215: Atlas_Antarktiki_I_0311.jpg
+P.216: Atlas_Antarktiki_I_0312.jpg
+P.217: Atlas_Antarktiki_I_0314.jpg
+P.218: Atlas_Antarktiki_I_0315.jpg
+P.219: Atlas_Antarktiki_I_0316.jpg
+P.220: Atlas_Antarktiki_I_0318.jpg
+P.221: Atlas_Antarktiki_I_0319.jpg
+P.222: Atlas_Antarktiki_I_0320.jpg
+P.223: Atlas_Antarktiki_I_0322.jpg
+P.224: Atlas_Antarktiki_I_0323.jpg
+P.225: Atlas_Antarktiki_I_0324.jpg
+
+Title Plates Scans:
+Atlas_Antarktiki_I_0298.jpg
+Atlas_Antarktiki_I_0303.jpg
+Atlas_Antarktiki_I_0308.jpg
+Atlas_Antarktiki_I_0313.jpg
+Atlas_Antarktiki_I_0317.jpg
+Atlas_Antarktiki_I_0321.jpg

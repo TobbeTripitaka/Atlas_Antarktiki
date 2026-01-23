@@ -1,0 +1,12 @@
+Wave Characteristics (P.100-102)
+
+Plates: 
+100,101,102
+
+Plates Scans:
+P.100: Atlas_Antarktiki_I_0152.jpg
+P.101: Atlas_Antarktiki_I_0153.jpg
+P.102: Atlas_Antarktiki_I_0154.jpg
+
+Title Plates Scans:
+Atlas_Antarktiki_I_0151.jpg

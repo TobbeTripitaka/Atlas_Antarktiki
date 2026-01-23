@@ -1,0 +1,20 @@
+Gravity Measurements (P.49-54)
+
+Plates: 
+49,50,51,52,53,54
+
+Plates Scans:
+P.49: Atlas_Antarktiki_I_0084.jpg
+P.49: Atlas_Antarktiki_I_0085.jpg
+P.50: Atlas_Antarktiki_I_0084.jpg
+P.50: Atlas_Antarktiki_I_0085.jpg
+P.51: Atlas_Antarktiki_I_0086.jpg
+P.52: Atlas_Antarktiki_I_0088.jpg
+P.52: Atlas_Antarktiki_I_0089.jpg
+P.53: Atlas_Antarktiki_I_0088.jpg
+P.53: Atlas_Antarktiki_I_0089.jpg
+P.54: Atlas_Antarktiki_I_0090.jpg
+
+Title Plates Scans:
+Atlas_Antarktiki_I_0083.jpg
+Atlas_Antarktiki_I_0087.jpg

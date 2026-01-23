@@ -1,0 +1,26 @@
+Relief and Bottom Sediments (P.64-72)
+
+Plates: 
+64,65,66,67,68,69,70,71,72
+
+Plates Scans:
+P.64: Atlas_Antarktiki_I_0104.jpg
+P.64: Atlas_Antarktiki_I_0105.jpg
+P.65: Atlas_Antarktiki_I_0104.jpg
+P.65: Atlas_Antarktiki_I_0105.jpg
+P.66: Atlas_Antarktiki_I_0106.jpg
+P.67: Atlas_Antarktiki_I_0108.jpg
+P.67: Atlas_Antarktiki_I_0109.jpg
+P.68: Atlas_Antarktiki_I_0108.jpg
+P.68: Atlas_Antarktiki_I_0109.jpg
+P.69: Atlas_Antarktiki_I_0110.jpg
+P.70: Atlas_Antarktiki_I_0112.jpg
+P.70: Atlas_Antarktiki_I_0113.jpg
+P.71: Atlas_Antarktiki_I_0112.jpg
+P.71: Atlas_Antarktiki_I_0113.jpg
+P.72: Atlas_Antarktiki_I_0114.jpg
+
+Title Plates Scans:
+Atlas_Antarktiki_I_0103.jpg
+Atlas_Antarktiki_I_0107.jpg
+Atlas_Antarktiki_I_0111.jpg

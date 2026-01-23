@@ -1,0 +1,24 @@
+Atlantic Sector and Weddell Sea (P.181-189)
+
+Plates: 
+181,182,183,184,185,186,187,188,189
+
+Plates Scans:
+P.181: Atlas_Antarktiki_I_0260.jpg
+P.181: Atlas_Antarktiki_I_0261.jpg
+P.182: Atlas_Antarktiki_I_0260.jpg
+P.182: Atlas_Antarktiki_I_0261.jpg
+P.183: Atlas_Antarktiki_I_0262.jpg
+P.184: Atlas_Antarktiki_I_0264.jpg
+P.184: Atlas_Antarktiki_I_0265.jpg
+P.185: Atlas_Antarktiki_I_0264.jpg
+P.185: Atlas_Antarktiki_I_0265.jpg
+P.186: Atlas_Antarktiki_I_0266.jpg
+P.187: Atlas_Antarktiki_I_0268.jpg
+P.188: Atlas_Antarktiki_I_0269.jpg
+P.189: Atlas_Antarktiki_I_0270.jpg
+
+Title Plates Scans:
+Atlas_Antarktiki_I_0259.jpg
+Atlas_Antarktiki_I_0263.jpg
+Atlas_Antarktiki_I_0267.jpg

@@ -1,0 +1,38 @@
+Wilkes Land (P.152-168)
+
+Plates: 
+151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168
+
+Plates Scans:
+P.151: Atlas_Antarktiki_I_0220.jpg
+P.151: Atlas_Antarktiki_I_0221.jpg
+P.152: Atlas_Antarktiki_I_0220.jpg
+P.152: Atlas_Antarktiki_I_0221.jpg
+P.153: Atlas_Antarktiki_I_0222.jpg
+P.154: Atlas_Antarktiki_I_0224.jpg
+P.154: Atlas_Antarktiki_I_0225.jpg
+P.155: Atlas_Antarktiki_I_0224.jpg
+P.155: Atlas_Antarktiki_I_0225.jpg
+P.156: Atlas_Antarktiki_I_0226.jpg
+P.157: Atlas_Antarktiki_I_0228.jpg
+P.158: Atlas_Antarktiki_I_0229.jpg
+P.159: Atlas_Antarktiki_I_0230.jpg
+P.160: Atlas_Antarktiki_I_0232.jpg
+P.161: Atlas_Antarktiki_I_0233.jpg
+P.162: Atlas_Antarktiki_I_0234.jpg
+P.163: Atlas_Antarktiki_I_0236.jpg
+P.163: Atlas_Antarktiki_I_0237.jpg
+P.164: Atlas_Antarktiki_I_0236.jpg
+P.164: Atlas_Antarktiki_I_0237.jpg
+P.165: Atlas_Antarktiki_I_0238.jpg
+P.166: Atlas_Antarktiki_I_0240.jpg
+P.166: Atlas_Antarktiki_I_0241.jpg
+P.168: Atlas_Antarktiki_I_0242.jpg
+
+Title Plates Scans:
+Atlas_Antarktiki_I_0219.jpg
+Atlas_Antarktiki_I_0223.jpg
+Atlas_Antarktiki_I_0227.jpg
+Atlas_Antarktiki_I_0231.jpg
+Atlas_Antarktiki_I_0235.jpg
+Atlas_Antarktiki_I_0239.jpg

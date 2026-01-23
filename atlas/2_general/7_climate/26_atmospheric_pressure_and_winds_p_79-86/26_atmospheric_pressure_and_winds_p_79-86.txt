@@ -1,0 +1,19 @@
+Atmospheric Pressure and Winds (P.79-86)
+
+Plates: 
+79,80,81,82,83,84,85,86
+
+Plates Scans:
+P.79: Atlas_Antarktiki_I_0124.jpg
+P.80: Atlas_Antarktiki_I_0125.jpg
+P.81: Atlas_Antarktiki_I_0126.jpg
+P.82: Atlas_Antarktiki_I_0128.jpg
+P.83: Atlas_Antarktiki_I_0129.jpg
+P.84: Atlas_Antarktiki_I_0130.jpg
+P.85: Atlas_Antarktiki_I_0132.jpg
+P.86: Atlas_Antarktiki_I_0133.jpg
+
+Title Plates Scans:
+Atlas_Antarktiki_I_0123.jpg
+Atlas_Antarktiki_I_0127.jpg
+Atlas_Antarktiki_I_0131.jpg
