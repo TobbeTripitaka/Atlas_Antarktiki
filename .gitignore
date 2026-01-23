@@ -14,11 +14,12 @@
 !img/
 !img/fig_1a.jpg
 
+# --- atlas rules ---
 
+# Allow the atlas directory itself
 !atlas/
 
-# 2) Allow desired extensions anywhere under atlas
+# Allow desired extensions anywhere under atlas
 !atlas/**/*.gpkg
 !atlas/**/*.log
 !atlas/**/*.txt
-
