@@ -17,9 +17,11 @@
 !/atlas/
 !/atlas/**
 
+
 atlas/**/*.tiff
 atlas/**/*.tif
 atlas/**/*.xml
 atlas/**/*.jpg
 atlas/**/*.pdf
-atlas/**/*.gpkg
+
+**/.DS_Store
