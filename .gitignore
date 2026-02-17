@@ -1,26 +1,23 @@
-# Ignore everything
-*
+# Ignore everything at repo root (non-recursive)
+/*
 
 # Root-level files to keep
-!.gitignore
-!sconstruct
-!atlas_antarktiki_processing.ipynb
-!volume_II.csv
-!volume_I.csv
-!atlas_master.xlsx
-!README.md
+!/.gitignore
+!/sconstruct
+!/atlas_antarktiki_processing.ipynb
+!/volume_II.csv
+!/volume_I.csv
+!/atlas_master.xlsx
+!/README.md
 
 # img rules
-!img/
-!img/fig_1a.jpg
+!/img/
+!/img/fig_1a.jpg
 
-# --- atlas: include all, then exclude some extensions ---
+# atlas: include all, then exclude some extensions
+!/atlas/
+!/atlas/**
 
-# Include the atlas directory and everything under it
-!atlas/
-!atlas/**
-
-# Now ignore unwanted formats inside atlas
 atlas/**/*.tiff
 atlas/**/*.tif
 atlas/**/*.xml
