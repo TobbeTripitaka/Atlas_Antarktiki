@@ -1,7 +1,6 @@
 # Ignore everything at repo root (non-recursive)
 /*
 
-# Root-level files to keep
 !/.gitignore
 !/sconstruct
 !/atlas_antarktiki_processing.ipynb
