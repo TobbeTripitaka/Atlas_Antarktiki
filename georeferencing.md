@@ -31,7 +31,6 @@ Inside each `_georeferencing` directory you will find at least two files sharing
 | **GeoTIFF raster** (`.tif`) | The scanned map image. It has a dummy georeference centred on the South Pole — this is just a placeholder so it can be loaded in QGIS. |
 | **Point vector file** (`.gpkg`) | A GeoPackage containing tie points to be positioned on the map. Each point has `lat` and `lon` attribute fields that hold the true geographic coordinates. |
 | Log file(s) | Analysis output from the georeferencing script. You can ignore these. |
-| QGIS project file(s) | Optional. May be present for convenience. |
 
 ## Instructions
 
@@ -47,7 +46,7 @@ The tie points are displayed as crosshairs, each labelled with its geographic co
 
 Select the point layer in the **Layers** panel, then click the **Toggle Editing** (pencil) button in the toolbar to enter edit mode.
 
-![Toggle editing in QGIS](screenshot_1.jpg)
+![Toggle editing in QGIS](img/qgis_1.jpg)
 
 ### 3. Adjust the tie points
 
@@ -74,6 +73,8 @@ Your goal is to place tie points precisely on identifiable locations in the map 
 3. In the attribute form that appears, enter the correct **`lat`** and **`lon`** values by reading them from the map's printed grid or graticule.
 
 > **Important:** When adding new points, you *must* type in the correct `lat` and `lon` attribute values. These are the true geographic coordinates that the georeferencing script uses. Read them directly from the grid labels on the map.
+
+![Toggle editing in QGIS](img/qgis_2.jpg)
 
 ### 4. Aim for good coverage
 
