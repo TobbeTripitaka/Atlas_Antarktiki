@@ -90,3 +90,4 @@ When you are satisfied with the tie point placement:
 2. When prompted, **save your edits**.
 
 That's all! The next time the georeferencing script runs, it will pick up your updated tie points, warp the raster, and log the results.
+
