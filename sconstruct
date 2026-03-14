@@ -6,13 +6,13 @@ Converting raw tiff scans to smaller jpgs and generating pdf.
 
 Watches tie point files and regenerates georeferenced maps when they change.
 
-Tobias Staal 2025
+Tobias Staal 2025, 2026
 """
 import os
-env = Environment(ENV=os.environ.copy())
-
+import re
 from pathlib import Path
 from datetime import datetime
+
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -21,37 +21,46 @@ from rasterio.control import GroundControlPoint
 from rasterio.transform import from_gcps
 import pyproj
 from pyproj import CRS
-
 import csv
-from SCons.Script import Action
 
+from SCons.Script import Action, Builder
+
+# ============================================================================
+# SINGLE ENVIRONMENT DEFINITION
+# ============================================================================
+
+env = Environment(ENV=os.environ.copy())
 
 atlas_master = 'atlas_master.xlsx'
 
-env = Environment(ENV=os.environ)
-
-# export directory
+# Export directory
 export_dir = 'export'
 
-# directory paths
+# Directory paths
 jpg_large_dir = f'{export_dir}/jpg_large/atlas_antarktiki_I'
 jpg_small_dir = f'{export_dir}/jpg_small/atlas_antarktiki_I'
 pdf_bw_I_dir = f'{export_dir}/pdf_bw/atlas_antarktiki_I'
 pdf_bw_II_dir = f'{export_dir}/pdf_bw/atlas_antarktiki_II'
 
 for d in [jpg_large_dir, jpg_small_dir, pdf_bw_I_dir, pdf_bw_II_dir]:
-    env.Execute(Mkdir(d))
+    os.makedirs(d, exist_ok=True)
+
+
+# ============================================================================
+# IMAGE CONVERSION AND PDF GENERATION
+# ============================================================================
 
 def create_magick_action(command):
-    """Create Action with stable command string for MD5 calculation"""
+    """Create Action with stable command string for MD5 calculation."""
     return Action(command, cmdstr=command.replace('$', '$$'))
 
-# build images and PDFs for Volume I
+
+# Build images and PDFs for Volume I
 pdf_I_nodes = {}
 for tiff in Glob('LZW compression TIFF/Atlas Antarktiki I/*.tif'):
     base_name = os.path.splitext(os.path.basename(str(tiff)))[0]
 
-    # large JPG
+    # Large JPG
     large_jpg = f'{jpg_large_dir}/{base_name}.jpg'
     env.Command(
         target=large_jpg,
@@ -62,7 +71,7 @@ for tiff in Glob('LZW compression TIFF/Atlas Antarktiki I/*.tif'):
         )
     )
 
-    # small JPG
+    # Small JPG
     small_jpg = f'{jpg_small_dir}/{base_name}.jpg'
     env.Command(
         target=small_jpg,
@@ -86,7 +95,7 @@ for tiff in Glob('LZW compression TIFF/Atlas Antarktiki I/*.tif'):
     )
     pdf_I_nodes[base_name] = node[0]
 
-# build OCR PDFs for Volume II
+# Build OCR PDFs for Volume II
 pdf_II_nodes = {}
 for tiff in Glob('LZW compression TIFF/Atlas Antarktiki II/*.tif'):
     base_name = os.path.splitext(os.path.basename(str(tiff)))[0]
@@ -103,8 +112,12 @@ for tiff in Glob('LZW compression TIFF/Atlas Antarktiki II/*.tif'):
     pdf_II_nodes[base_name] = node[0]
 
 
-# ordering for PDF compilation
+# ============================================================================
+# PDF COMPILATION ORDERING
+# ============================================================================
+
 def get_ordered_nodes(csv_filename, node_dict):
+    """Read CSV to determine page ordering for compiled PDF."""
     ordered = []
     with open(csv_filename, newline='', encoding='utf-8') as csvfile:
         reader = csv.DictReader(csvfile)
@@ -117,8 +130,9 @@ def get_ordered_nodes(csv_filename, node_dict):
                 if base in node_dict:
                     rows.append((int(compile_order), node_dict[base]))
         rows.sort()
-        ordered = [node for order, node in rows]
+        ordered = [node for _, node in rows]
     return ordered
+
 
 volume_I_csv_file = 'volume_I.csv'
 volume_II_csv_file = 'volume_II.csv'
@@ -126,18 +140,29 @@ volume_II_csv_file = 'volume_II.csv'
 volume_I_ordered_nodes = get_ordered_nodes(volume_I_csv_file, pdf_I_nodes)
 volume_II_ordered_nodes = get_ordered_nodes(volume_II_csv_file, pdf_II_nodes)
 
-# compile complete PDFs using Ghostscript in the specified order
-env.Command(
+# Compile complete PDF for Volume I (with CSV as dependency)
+vol_I_pdf = env.Command(
+    target=f'{export_dir}/atlas_antarktiki_I_complete.pdf',
+    source=volume_I_ordered_nodes,
+    action='gs -sDEVICE=pdfwrite -dNOPAUSE -dBATCH -dSAFER '
+           '-sOutputFile="$TARGET" -dAutoRotatePages=/None '
+           '-dPDFSETTINGS=/ebook -dCompatibilityLevel=1.4 $SOURCES'
+)
+env.Depends(vol_I_pdf, volume_I_csv_file)
+
+# Compile complete PDF for Volume II (with CSV as dependency)
+vol_II_pdf = env.Command(
     target=f'{export_dir}/atlas_antarktiki_II_complete.pdf',
     source=volume_II_ordered_nodes,
     action='gs -sDEVICE=pdfwrite -dNOPAUSE -dBATCH -dSAFER '
            '-sOutputFile="$TARGET" -dAutoRotatePages=/None '
            '-dPDFSETTINGS=/ebook -dCompatibilityLevel=1.4 $SOURCES'
 )
+env.Depends(vol_II_pdf, volume_II_csv_file)
 
 
 # ============================================================================
-# HELPER FUNCTION: Extract CRS from Excel cell
+# HELPER FUNCTIONS
 # ============================================================================
 
 def get_target_crs(crs_value, default_crs=3031):
@@ -145,40 +170,208 @@ def get_target_crs(crs_value, default_crs=3031):
     Extract and validate EPSG code from Excel cell.
     Returns integer EPSG code or default.
     """
-    # Check for NaN
     if pd.isna(crs_value):
         return default_crs
 
-    # Convert to string and strip whitespace
     crs_str = str(crs_value).strip()
 
-    # Check for empty strings or sentinel values
-    if crs_str in ['', '-', 'NA', 'N/A', 'None', 'nan']:
+    if crs_str in ('', '-', 'NA', 'N/A', 'None', 'nan'):
         return default_crs
 
     try:
-        crs_int = int(crs_str)
-        return crs_int
+        return int(crs_str)
     except ValueError:
         return default_crs
+
+
+def sanitise_key(text):
+    """
+    Convert a string into a safe BibTeX citation key fragment.
+    Keeps ASCII alphanumerics and underscores, collapses whitespace to '_'.
+    """
+    text = re.sub(r'[^\w\s]', '', str(text))
+    text = re.sub(r'\s+', '_', text.strip())
+    return text.lower()
+
+
+def safe_field(value):
+    """Return field value as a cleaned string, or empty string if NaN/missing."""
+    if pd.isna(value):
+        return ''
+    return str(value).strip()
+
+
+def escape_bibtex(text):
+    """Escape special BibTeX characters."""
+    text = text.replace('&', r'\&')
+    text = text.replace('%', r'\%')
+    text = text.replace('#', r'\#')
+    text = text.replace('_', r'\_')
+    return text
+
+
+# ============================================================================
+# BIBTEX GENERATION FOR INDIVIDUAL MAP PLATES
+# ============================================================================
+
+def generate_map_bibtex(row, volume=1):
+    """
+    Generate a BibTeX @incollection entry for a map plate in an atlas.
+
+    Uses @incollection (a chapter/section within a larger collected work)
+    with cartographic-specific fields (note for scale, type for [map]).
+
+    Fields populated from spreadsheet columns:
+        Part, Section, Subsection, Plate, Map Index, Map Subindex,
+        Title, Sub title, Scale, Author, Editor
+    """
+
+    # Build citation key: atlas_I_plate_003a_short_title
+    plate = safe_field(row.get('Plate', ''))
+    map_idx = safe_field(row.get('Map Index', ''))
+    map_subidx = safe_field(row.get('Map Subindex', ''))
+    title = safe_field(row.get('Title', ''))
+
+    plate_str = plate.replace(' ', '').zfill(3) if plate else '000'
+    idx_str = f"_{map_idx}" if map_idx else ''
+    subidx_str = map_subidx if map_subidx else ''
+    title_fragment = sanitise_key(title)[:30] if title else 'untitled'
+
+    cite_key = f"atlas_{('I' if volume == 1 else 'II')}_{plate_str}{idx_str}{subidx_str}_{title_fragment}"
+
+    # Map title: combine Title and Sub title
+    map_title = escape_bibtex(title) if title else 'Untitled map'
+    subtitle = safe_field(row.get('Sub title', ''))
+    if subtitle:
+        map_title += f": {escape_bibtex(subtitle)}"
+
+    # Author: map-level author if present, otherwise the atlas editor
+    author = safe_field(row.get('Author', ''))
+    editor = safe_field(row.get('Editor', ''))
+
+    # Scale
+    scale = safe_field(row.get('Scale', ''))
+
+    # Structural location within the atlas
+    part = safe_field(row.get('Part', ''))
+    section = safe_field(row.get('Section', ''))
+    subsection = safe_field(row.get('Subsection', ''))
+
+    # Build the location note
+    location_parts = []
+    if part:
+        location_parts.append(f"Part {escape_bibtex(part)}")
+    if section:
+        location_parts.append(f"Section {escape_bibtex(section)}")
+    if subsection:
+        location_parts.append(f"Subsection {escape_bibtex(subsection)}")
+
+    plate_ref = ''
+    if plate:
+        plate_ref = f"Plate {plate}"
+        if map_idx:
+            plate_ref += f", Map {map_idx}"
+        if map_subidx:
+            plate_ref += f"{map_subidx}"
+
+    # Assemble BibTeX entry
+    lines = []
+    lines.append(f"@incollection{{{cite_key},")
+
+    if author:
+        lines.append(f"  author       = {{{escape_bibtex(author)}}},")
+
+    lines.append(f"  title        = {{{map_title}}},")
+    lines.append(f"  booktitle    = {{Atlas Antarktiki}},")
+
+    if editor:
+        lines.append(f"  editor       = {{{escape_bibtex(editor)}}},")
+
+    lines.append(f"  volume       = {{{volume}}},")
+    lines.append(f"  publisher    = {{Glavnoye upravleniye geodezii i kartografii pri Sovete Ministrov SSSR}},")
+    lines.append(f"  address      = {{Moscow}},")
+    lines.append(f"  year         = {{1966}},")
+    lines.append(f"  type         = {{map}},")
+
+    if scale:
+        lines.append(f"  note         = {{Scale {escape_bibtex(scale)}}},")
+    elif location_parts:
+        lines.append(f"  note         = {{{'; '.join(location_parts)}}},")
+
+    if scale and location_parts:
+        lines.append(f"  annote       = {{{'; '.join(location_parts)}}},")
+
+    if plate_ref:
+        lines.append(f"  pages        = {{{plate_ref}}},")
+
+    # Crossref to the parent atlas entry
+    lines.append(f"  crossref     = {{tolstikov1966}}")
+    lines.append(f"}}")
+
+    return cite_key, '\n'.join(lines)
+
+
+ATLAS_PARENT_BIB = """@book{tolstikov1966,
+  author    = {Tolstikov, Evgenii Ivanovich},
+  title     = {Atlas Antarktiki},
+  volume    = {1},
+  year      = {1966},
+  publisher = {Glavnoye upravleniye geodezii i kartografii pri Sovete Ministrov SSSR},
+  address   = {Moscow}
+}
+"""
+
+
+def write_bibtex_file(bib_path, bib_entry):
+    """
+    Write a .bib file containing the atlas parent entry and the map entry.
+    """
+    content = (
+        f"% Auto-generated by SConstruct — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"% Map-level citation for: {Path(bib_path).stem}\n\n"
+        f"{ATLAS_PARENT_BIB}\n"
+        f"{bib_entry}\n"
+    )
+    with open(bib_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+
+def bibtex_builder(target, source, env):
+    """
+    SCons builder that generates a .bib file for a map plate.
+
+    target[0]: .bib file (output)
+    source[0]: atlas_master.xlsx (input dependency)
+    env: must contain BIB_ENTRY (the pre-rendered BibTeX string)
+    """
+    bib_path = str(target[0])
+    bib_entry = env.get('BIB_ENTRY', '')
+
+    try:
+        write_bibtex_file(bib_path, bib_entry)
+        print(f"OK: Generated {bib_path}")
+        return 0
+    except Exception as e:
+        print(f"ERROR: Writing {bib_path}: {e}")
+        return 1
+
+
+bibtex_action = Action(bibtex_builder, "Generating BibTeX $TARGET")
+bibtex_builder_obj = Builder(action=bibtex_action)
+env.Append(BUILDERS={'BibTeX': bibtex_builder_obj})
 
 
 # ============================================================================
 # GEOREFERENCING FUNCTION
 # ============================================================================
 
-def georeference_map(source_raster, target_raster, tie_points, target_crs=3031):
+def georeference_map(source_raster, target_raster, tie_points, log_file, target_crs=3031):
     """
-    Re-georeferences from point vector.
+    Re-georeferences from point vector using affine (1st-order polynomial) fit.
     Generates a detailed log file with transformation statistics.
     Returns the path to the log file.
     """
 
-    # Generate log file path
-    tie_points_path = Path(tie_points)
-    log_file = tie_points_path.parent / f"{tie_points_path.stem}.log"
-
-    # Start collecting log content
     log_lines = []
     log_lines.append("=" * 80)
     log_lines.append("GEOREFERENCING REPORT")
@@ -189,24 +382,20 @@ def georeference_map(source_raster, target_raster, tie_points, target_crs=3031):
     log_lines.append(f"Tie Points: {tie_points}")
     log_lines.append("")
 
-    # Define CRS
     custom_crs = CRS.from_epsg(target_crs)
     log_lines.append(f"Target CRS: {custom_crs}")
     print(f"Using CRS: {custom_crs}")
 
-    # Read tie points
     gdf = gpd.read_file(tie_points)
     log_lines.append(f"Number of tie points: {len(gdf)}")
     print(f"Loaded {len(gdf)} tie points from {tie_points}")
 
-    # Read source raster
     with rasterio.open(source_raster) as src:
         data = src.read()
         log_lines.append(f"Source dimensions: {src.width} x {src.height} pixels")
         log_lines.append(f"Source bands: {src.count}")
         print(f"Source raster: {src.width} x {src.height} pixels")
 
-        # Transformer from WGS84 to target CRS
         transformer = pyproj.Transformer.from_crs("EPSG:4326", custom_crs, always_xy=True)
 
         gcps = []
@@ -216,18 +405,18 @@ def georeference_map(source_raster, target_raster, tie_points, target_crs=3031):
         log_lines.append("-" * 80)
         log_lines.append("CONTROL POINTS")
         log_lines.append("-" * 80)
-        log_lines.append(f"{'ID':<5} {'Pixel X':<10} {'Pixel Y':<10} {'Map X':<12} {'Map Y':<12} {'Target X':<12} {'Target Y':<12}")
+        log_lines.append(
+            f"{'ID':<5} {'Pixel X':<10} {'Pixel Y':<10} "
+            f"{'Map X':<12} {'Map Y':<12} {'Target X':<12} {'Target Y':<12}"
+        )
         log_lines.append("-" * 80)
 
         for idx, row in gdf.iterrows():
-            # Current (incorrect) position in lat/lon
             curr_lon, curr_lat = row.geometry.x, row.geometry.y
             curr_x, curr_y = transformer.transform(curr_lon, curr_lat)
 
-            # Pixel position of current location
             pix_col, pix_row = ~src.transform * (curr_x, curr_y)
 
-            # Target (correct) position in lat/lon
             tgt_lon, tgt_lat = row["lon"], row["lat"]
             tgt_x, tgt_y = transformer.transform(tgt_lon, tgt_lat)
 
@@ -235,7 +424,6 @@ def georeference_map(source_raster, target_raster, tie_points, target_crs=3031):
                 GroundControlPoint(row=pix_row, col=pix_col, x=tgt_x, y=tgt_y, z=0)
             )
 
-            # Store for residual calculation later
             residuals.append({
                 'idx': idx,
                 'pix_col': pix_col,
@@ -246,19 +434,13 @@ def georeference_map(source_raster, target_raster, tie_points, target_crs=3031):
                 'tgt_y': tgt_y
             })
 
-            log_line = f"{idx+1:<5} {pix_col:<10.1f} {pix_row:<10.1f} {curr_x:<12.0f} {curr_y:<12.0f} {tgt_x:<12.0f} {tgt_y:<12.0f}"
-            log_lines.append(log_line)
+            log_lines.append(
+                f"{idx+1:<5} {pix_col:<10.1f} {pix_row:<10.1f} "
+                f"{curr_x:<12.0f} {curr_y:<12.0f} {tgt_x:<12.0f} {tgt_y:<12.0f}"
+            )
 
-            # print(
-            #     f"Point {idx+1}: pixel({pix_col:.1f},{pix_row:.1f}) "
-            #     f"-> EPSG{target_crs} current({curr_x:.0f},{curr_y:.0f}) "
-            #     f"target({tgt_x:.0f},{tgt_y:.0f})"
-            # )
-
-        # Calculate new transform
         new_transform = from_gcps(gcps)
 
-        # Calculate residuals using the new transform
         log_lines.append("")
         log_lines.append("-" * 80)
         log_lines.append("RESIDUAL ANALYSIS")
@@ -271,10 +453,8 @@ def georeference_map(source_raster, target_raster, tie_points, target_crs=3031):
         dy_list = []
 
         for res in residuals:
-            # Forward transform: pixel -> map coordinates using new transform
             predicted_x, predicted_y = new_transform * (res['pix_col'], res['pix_row'])
 
-            # Calculate residuals (difference between predicted and target)
             dx = predicted_x - res['tgt_x']
             dy = predicted_y - res['tgt_y']
             residual = np.sqrt(dx**2 + dy**2)
@@ -285,7 +465,6 @@ def georeference_map(source_raster, target_raster, tie_points, target_crs=3031):
 
             log_lines.append(f"{res['idx']+1:<5} {dx:<12.2f} {dy:<12.2f} {residual:<15.2f}")
 
-        # Calculate statistics
         residual_errors = np.array(residual_errors)
         dx_array = np.array(dx_list)
         dy_array = np.array(dy_list)
@@ -302,8 +481,9 @@ def georeference_map(source_raster, target_raster, tie_points, target_crs=3031):
         log_lines.append("")
         log_lines.append("TRANSFORMATION STATISTICS")
         log_lines.append("-" * 80)
-        log_lines.append(f"Transformation type: Polynomial (affine)")
+        log_lines.append(f"Transformation type: Affine (1st-order polynomial, 6 parameters)")
         log_lines.append(f"Number of GCPs used: {len(gcps)}")
+        log_lines.append(f"Degrees of freedom:  {max(0, len(gcps) - 3)}")
         log_lines.append("")
         log_lines.append("Residual Errors:")
         log_lines.append(f"  Mean error:     {mean_error:10.2f} m")
@@ -314,7 +494,6 @@ def georeference_map(source_raster, target_raster, tie_points, target_crs=3031):
         log_lines.append(f"  Maximum error:  {max_error:10.2f} m")
         log_lines.append(f"  Minimum error:  {min_error:10.2f} m")
 
-        # Transform parameters
         log_lines.append("")
         log_lines.append("Transformation Matrix:")
         log_lines.append(f"  a (scale X):    {new_transform.a:15.6f}")
@@ -324,7 +503,6 @@ def georeference_map(source_raster, target_raster, tie_points, target_crs=3031):
         log_lines.append(f"  e (scale Y):    {new_transform.e:15.6f}")
         log_lines.append(f"  f (translation Y): {new_transform.f:15.2f}")
 
-        # Derived metrics
         pixel_size_x = abs(new_transform.a)
         pixel_size_y = abs(new_transform.e)
         rotation = np.degrees(np.arctan2(new_transform.b, new_transform.a))
@@ -335,7 +513,6 @@ def georeference_map(source_raster, target_raster, tie_points, target_crs=3031):
         log_lines.append(f"  Pixel size Y:   {pixel_size_y:10.2f} m/pixel")
         log_lines.append(f"  Rotation:       {rotation:10.4f} degrees")
 
-        # Quality assessment
         log_lines.append("")
         log_lines.append("QUALITY ASSESSMENT")
         log_lines.append("-" * 80)
@@ -359,14 +536,12 @@ def georeference_map(source_raster, target_raster, tie_points, target_crs=3031):
         log_lines.append("")
         log_lines.append("=" * 80)
 
-        # Write log file
         with open(log_file, 'w') as f:
             f.write('\n'.join(log_lines))
 
         print(f"\nLog file written to: {log_file}")
         print(f"RMSE: {rmse:.2f} m")
 
-        # Write georeferenced raster
         profile = src.profile.copy()
         profile.update(crs=custom_crs, transform=new_transform)
 
@@ -378,18 +553,10 @@ def georeference_map(source_raster, target_raster, tie_points, target_crs=3031):
 
 
 # ============================================================================
-# SCons CONFIGURATION
+# SCons BUILDER FOR GEOREFERENCING
 # ============================================================================
 
-env = Environment(ENV=os.environ.copy())
-
-# Configuration
-ATLAS_DIR = Path('atlas')
 DEFAULT_CRS = 3031
-
-# ============================================================================
-# BUILDER FUNCTION
-# ============================================================================
 
 def georef_builder(target, source, env):
     """
@@ -398,18 +565,17 @@ def georef_builder(target, source, env):
     target[0]: log file (output)
     target[1]: georeferenced raster in maps/ (output)
     source[0]: GPKG tie points file (input)
-    source[1]: ungeoreferenced TIFF in _georeferencing/ (input)
-    env: SCons environment (used to pass target_crs)
+    source[1]: ungeoreferenced TIFF in subdir
     """
     tie_points = str(source[0])
     source_raster = str(source[1])
+    target_log = str(target[0])
     target_raster = str(target[1])
 
-    # Get CRS from environment variable (set by build_task)
     crs = env.get('TARGET_CRS', DEFAULT_CRS)
 
     try:
-        log_file = georeference_map(source_raster, target_raster, tie_points, target_crs=crs)
+        georeference_map(source_raster, target_raster, tie_points, target_log, target_crs=crs)
         print(f"OK: Georeferenced {Path(source_raster).name}")
         return 0
     except Exception as e:
@@ -417,7 +583,6 @@ def georef_builder(target, source, env):
         return 1
 
 
-# Create the builder
 georef_action = Action(georef_builder, "Georeferencing $SOURCE")
 georef_builder_obj = Builder(action=georef_action)
 env.Append(BUILDERS={'Georef': georef_builder_obj})
@@ -427,7 +592,6 @@ env.Append(BUILDERS={'Georef': georef_builder_obj})
 # FIND AND BUILD TARGETS FROM EXCEL
 # ============================================================================
 
-# Read master Excel file
 try:
     df = pd.read_excel(atlas_master, dtype={"Target crs": "string"})
     print(f"Loaded {atlas_master} with {len(df)} rows")
@@ -435,39 +599,31 @@ except Exception as e:
     print(f"ERROR: Could not load {atlas_master}: {e}")
     df = pd.DataFrame()
 
-# Parse and explode paths from tiepoint_path and raw_path columns
 if not df.empty and 'tiepoint_path' in df.columns and 'raw_path' in df.columns:
 
-    # Combine tiepoint_path and raw_path for processing
     build_tasks = []
 
     for idx, row in df.iterrows():
         tiepoint_paths = row['tiepoint_path']
         raw_paths = row['raw_path']
 
-        # Skip if either is missing or '-'
-        if pd.isna(tiepoint_paths) or tiepoint_paths == '-' or \
-           pd.isna(raw_paths) or raw_paths == '-':
+        if (pd.isna(tiepoint_paths) or tiepoint_paths == '-'
+                or pd.isna(raw_paths) or raw_paths == '-'):
             continue
 
-        # Extract target CRS for this row
         target_crs = get_target_crs(row.get('Target crs', DEFAULT_CRS))
 
-        # Split comma-separated values
         tiepoint_list = [p.strip() for p in str(tiepoint_paths).split(',')]
         raw_list = [p.strip() for p in str(raw_paths).split(',')]
 
-        # Should be same length
         if len(tiepoint_list) != len(raw_list):
             print(f"WARNING: Row {idx} has mismatched tiepoint/raw path counts")
             continue
 
-        # Process each pair
         for tiepoint_path, raw_path in zip(tiepoint_list, raw_list):
             tiepoint_path = Path(tiepoint_path)
             raw_path = Path(raw_path)
 
-            # Validate paths exist
             if not tiepoint_path.exists():
                 print(f"WARNING: Tiepoint file not found: {tiepoint_path}")
                 continue
@@ -478,34 +634,115 @@ if not df.empty and 'tiepoint_path' in df.columns and 'raw_path' in df.columns:
 
             stem = tiepoint_path.stem
 
-            # Target paths
+            # ---------------------------------------------------------------
+            # DIRECTORY RENAMING: use stem name directly
+            # The subdirectory for accessory files is named after the map stem
+            # and sits alongside the georeferenced TIFF.
+            # ---------------------------------------------------------------
+            map_dir = tiepoint_path.parent.parent / stem
+            os.makedirs(str(map_dir), exist_ok=True)
+
             target_tiff = tiepoint_path.parent.parent / f"{stem}.tiff"
-            target_log = tiepoint_path.parent / f"{stem}.log"
+            target_log = map_dir / f"{stem}.log"
 
             build_tasks.append({
                 'tiepoint': str(tiepoint_path),
                 'raw': str(raw_path),
                 'target_log': str(target_log),
                 'target_tiff': str(target_tiff),
+                'map_dir': str(map_dir),
                 'stem': stem,
-                'target_crs': target_crs
+                'target_crs': target_crs,
+                'row': row,
             })
 
-    print(f"\nFound {len(build_tasks)} build tasks from Excel")
+    print(f"\nFound {len(build_tasks)} georeferencing tasks from Excel")
 
     # Register all build targets
     for task in sorted(build_tasks, key=lambda x: x['stem']):
-        # Create a new environment for this task with the specific CRS
+
+        # --- Georeferencing target ---
         task_env = env.Clone()
         task_env['TARGET_CRS'] = task['target_crs']
 
-        task_env.Georef(
+        georef_targets = task_env.Georef(
             [task['target_log'], task['target_tiff']],
             [task['tiepoint'], task['raw']]
         )
-        # print(f"  Configured: {task['stem']} (EPSG:{task['target_crs']})")
+        env.Depends(georef_targets, atlas_master)
+
+        # --- BibTeX generation target ---
+        row = task['row']
+
+        # Determine volume from the raw path (heuristic: 'II' in path -> vol 2)
+        volume = 2 if 'II' in task['raw'] else 1
+
+        cite_key, bib_entry = generate_map_bibtex(row, volume=volume)
+
+        bib_path = str(Path(task['map_dir']) / f"{task['stem']}.bib")
+
+        bib_env = env.Clone()
+        bib_env['BIB_ENTRY'] = bib_entry
+
+        bib_target = bib_env.BibTeX(
+            target=bib_path,
+            source=atlas_master
+        )
 
 else:
     print("ERROR: Could not find 'tiepoint_path' and/or 'raw_path' columns in Excel file")
+
+
+# ============================================================================
+# BIBTEX FOR ALL MAPS
+# ============================================================================
+
+# Generate .bib files for every row in the spreadsheet that has a title,
+# even if no tiepoint/raw pair exists yet. These go into atlas/<stem>/.
+if not df.empty and 'Title' in df.columns:
+
+    for idx, row in df.iterrows():
+        title = safe_field(row.get('Title', ''))
+        if not title:
+            continue
+
+        plate = safe_field(row.get('Plate', ''))
+        map_idx = safe_field(row.get('Map Index', ''))
+        map_subidx = safe_field(row.get('Map Subindex', ''))
+
+        # Build a stem from plate + index for maps without tiepoint paths
+        stem_parts = [f"plate_{plate}" if plate else '']
+        if map_idx:
+            stem_parts.append(f"map_{map_idx}")
+        if map_subidx:
+            stem_parts.append(map_subidx)
+        stem_parts.append(sanitise_key(title)[:30])
+        bib_stem = '_'.join(p for p in stem_parts if p)
+
+        # Only generate if not already handled by the georeferencing loop
+        tiepoint_paths = safe_field(row.get('tiepoint_path', ''))
+        if tiepoint_paths and tiepoint_paths != '-':
+            continue
+
+        volume = 1  # default; override if column exists
+        raw_path_str = safe_field(row.get('raw_path', ''))
+        if 'II' in raw_path_str:
+            volume = 2
+
+        cite_key, bib_entry = generate_map_bibtex(row, volume=volume)
+
+        bib_dir = Path('atlas') / bib_stem
+        os.makedirs(str(bib_dir), exist_ok=True)
+
+        bib_path = str(bib_dir / f"{bib_stem}.bib")
+
+        bib_env = env.Clone()
+        bib_env['BIB_ENTRY'] = bib_entry
+
+        bib_env.BibTeX(
+            target=bib_path,
+            source=atlas_master
+        )
+
 
 print("\n" + "=" * 80)
