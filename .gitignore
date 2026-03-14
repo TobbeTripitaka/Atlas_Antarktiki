@@ -18,6 +18,9 @@
 !/atlas/
 !/atlas/**
 
+!/lib/
+!/lib/**
+
 
 atlas/**/*.tiff
 atlas/**/*.tif
