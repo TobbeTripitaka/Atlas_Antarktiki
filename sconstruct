@@ -6,7 +6,7 @@ Converting raw tiff scans to smaller jpgs and generating pdf.
 
 Watches tie point files and regenerates georeferenced maps when they change.
 
-Tobias Staal 2025, 2026
+Tobias Staal 2025
 """
 import os
 import re
@@ -565,7 +565,7 @@ def georef_builder(target, source, env):
     target[0]: log file (output)
     target[1]: georeferenced raster in maps/ (output)
     source[0]: GPKG tie points file (input)
-    source[1]: ungeoreferenced TIFF in subdir
+    source[1]: ungeoreferenced TIFF in _georeferencing/ (input)
     """
     tie_points = str(source[0])
     source_raster = str(source[1])
@@ -635,7 +635,7 @@ if not df.empty and 'tiepoint_path' in df.columns and 'raw_path' in df.columns:
             stem = tiepoint_path.stem
 
             # ---------------------------------------------------------------
-            # DIRECTORY RENAMING: use stem name directly
+            # DIRECTORY RENAMING: use stem name directly (no _georeferencing)
             # The subdirectory for accessory files is named after the map stem
             # and sits alongside the georeferenced TIFF.
             # ---------------------------------------------------------------
@@ -659,7 +659,13 @@ if not df.empty and 'tiepoint_path' in df.columns and 'raw_path' in df.columns:
     print(f"\nFound {len(build_tasks)} georeferencing tasks from Excel")
 
     # Register all build targets
+    registered_targets = set()
     for task in sorted(build_tasks, key=lambda x: x['stem']):
+        target_key = task['target_tiff']
+        if target_key in registered_targets:
+            print(f"INFO: Skipping duplicate target: {task['stem']}")
+            continue
+        registered_targets.add(target_key)
 
         # --- Georeferencing target ---
         task_env = env.Clone()
@@ -694,11 +700,23 @@ else:
 
 
 # ============================================================================
-# BIBTEX FOR ALL MAPS
+# BIBTEX FOR ALL MAPS (including those without georeferencing)
 # ============================================================================
 
-# Generate .bib files for every row in the spreadsheet that has a title,
-# even if no tiepoint/raw pair exists yet. These go into atlas/<stem>/.
+# Resolve the root directory where existing map subdirs live.
+# We inspect already-created build_tasks to find the common parent,
+# so title-only subdirs land in exactly the same place as the georef maps.
+# Falls back to Path('atlas') if no georef tasks exist.
+
+def _infer_map_root(tasks, fallback=Path('atlas')):
+    """Return the common parent of all map_dir entries in build_tasks."""
+    if not tasks:
+        return fallback
+    from collections import Counter
+    return Counter(Path(t['map_dir']).parent for t in tasks).most_common(1)[0][0]
+
+MAP_ROOT = _infer_map_root(build_tasks if 'build_tasks' in dir() else [])
+
 if not df.empty and 'Title' in df.columns:
 
     for idx, row in df.iterrows():
@@ -719,19 +737,25 @@ if not df.empty and 'Title' in df.columns:
         stem_parts.append(sanitise_key(title)[:30])
         bib_stem = '_'.join(p for p in stem_parts if p)
 
-        # Only generate if not already handled by the georeferencing loop
+        # Guard: bib_stem must be non-empty — avoids writing directly into MAP_ROOT
+        if not bib_stem:
+            print(f"WARNING: Row {idx} produced an empty stem, skipping BibTeX generation.")
+            continue
+
+        # Only generate if not already handled by the georeferencing loop above
         tiepoint_paths = safe_field(row.get('tiepoint_path', ''))
         if tiepoint_paths and tiepoint_paths != '-':
             continue
 
-        volume = 1  # default; override if column exists
+        volume = 1
         raw_path_str = safe_field(row.get('raw_path', ''))
         if 'II' in raw_path_str:
             volume = 2
 
         cite_key, bib_entry = generate_map_bibtex(row, volume=volume)
 
-        bib_dir = Path('atlas') / bib_stem
+        # Place subdir alongside existing map subdirs — never falls through to project root
+        bib_dir = MAP_ROOT / bib_stem
         os.makedirs(str(bib_dir), exist_ok=True)
 
         bib_path = str(bib_dir / f"{bib_stem}.bib")
@@ -743,6 +767,5 @@ if not df.empty and 'Title' in df.columns:
             target=bib_path,
             source=atlas_master
         )
-
 
 print("\n" + "=" * 80)
