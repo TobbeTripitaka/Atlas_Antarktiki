@@ -1,6 +1,6 @@
-# Georeferencing
+# Georeferencing using QGIS
 
-This document describes how to place tie points for georeferencing scanned maps in the atlas compilation. You only need to position and attribute the tie points in QGIS — a script will later use these points to warp the rasters automatically.
+This document describes how to place tie points for georeferencing scanned maps in the atlas compilation. You only need to position and attribute the tie points in QGIS, a script will later use these points to warp the rasters automatically.
 
 ## Directory Structure
 
