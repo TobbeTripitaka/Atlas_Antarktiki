@@ -214,19 +214,29 @@ def escape_bibtex(text):
 # BIBTEX GENERATION FOR INDIVIDUAL MAP PLATES
 # ============================================================================
 
-def generate_map_bibtex(row, volume=1):
+def is_map_scale(scale_str):
     """
-    Generate a BibTeX @incollection entry for a map plate in an atlas.
+    Return True if scale_str looks like a cartographic ratio (e.g. '1:80,000,000').
+    Returns False for content-type words like 'photo', 'diagram', 'table'.
+    """
+    import re as _re
+    return bool(_re.match(r'^\s*1\s*:\s*[\d,\.\s]+$', scale_str))
 
-    Uses @incollection (a chapter/section within a larger collected work)
-    with cartographic-specific fields (note for scale, type for [map]).
+
+def generate_bibtex_entry(row, volume=1):
+    """
+    Generate a BibTeX @incollection entry for any row in the atlas spreadsheet.
+
+    Scale field interpretation:
+        - Ratio string (e.g. '1:80,000,000') → type = {map}, note = {Scale ...}
+        - Word  (e.g. 'photo', 'diagram')    → type = {photo} / {diagram} etc.
+        - Empty / NaN                         → type field omitted
 
     Fields populated from spreadsheet columns:
         Part, Section, Subsection, Plate, Map Index, Map Subindex,
         Title, Sub title, Scale, Author, Editor
     """
 
-    # Build citation key: atlas_I_plate_003a_short_title
     plate = safe_field(row.get('Plate', ''))
     map_idx = safe_field(row.get('Map Index', ''))
     map_subidx = safe_field(row.get('Map Subindex', ''))
@@ -239,25 +249,31 @@ def generate_map_bibtex(row, volume=1):
 
     cite_key = f"atlas_{('I' if volume == 1 else 'II')}_{plate_str}{idx_str}{subidx_str}_{title_fragment}"
 
-    # Map title: combine Title and Sub title
-    map_title = escape_bibtex(title) if title else 'Untitled map'
+    # Title: combine Title and Sub title
+    entry_title = escape_bibtex(title) if title else 'Untitled'
     subtitle = safe_field(row.get('Sub title', ''))
     if subtitle:
-        map_title += f": {escape_bibtex(subtitle)}"
+        entry_title += f": {escape_bibtex(subtitle)}"
 
-    # Author: map-level author if present, otherwise the atlas editor
     author = safe_field(row.get('Author', ''))
     editor = safe_field(row.get('Editor', ''))
-
-    # Scale
     scale = safe_field(row.get('Scale', ''))
 
-    # Structural location within the atlas
+    # Determine content type from Scale field
+    if scale and is_map_scale(scale):
+        content_type = 'map'
+        scale_note = f"Scale {escape_bibtex(scale)}"
+    elif scale:
+        content_type = scale.lower().strip()
+        scale_note = ''
+    else:
+        content_type = ''
+        scale_note = ''
+
     part = safe_field(row.get('Part', ''))
     section = safe_field(row.get('Section', ''))
     subsection = safe_field(row.get('Subsection', ''))
 
-    # Build the location note
     location_parts = []
     if part:
         location_parts.append(f"Part {escape_bibtex(part)}")
@@ -274,14 +290,13 @@ def generate_map_bibtex(row, volume=1):
         if map_subidx:
             plate_ref += f"{map_subidx}"
 
-    # Assemble BibTeX entry
     lines = []
     lines.append(f"@incollection{{{cite_key},")
 
     if author:
         lines.append(f"  author       = {{{escape_bibtex(author)}}},")
 
-    lines.append(f"  title        = {{{map_title}}},")
+    lines.append(f"  title        = {{{entry_title}}},")
     lines.append(f"  booktitle    = {{Atlas Antarktiki}},")
 
     if editor:
@@ -291,24 +306,29 @@ def generate_map_bibtex(row, volume=1):
     lines.append(f"  publisher    = {{Glavnoye upravleniye geodezii i kartografii pri Sovete Ministrov SSSR}},")
     lines.append(f"  address      = {{Moscow}},")
     lines.append(f"  year         = {{1966}},")
-    lines.append(f"  type         = {{map}},")
 
-    if scale:
-        lines.append(f"  note         = {{Scale {escape_bibtex(scale)}}},")
+    if content_type:
+        lines.append(f"  type         = {{{content_type}}},")
+
+    if scale_note:
+        lines.append(f"  note         = {{{scale_note}}},")
     elif location_parts:
         lines.append(f"  note         = {{{'; '.join(location_parts)}}},")
 
-    if scale and location_parts:
+    if scale_note and location_parts:
         lines.append(f"  annote       = {{{'; '.join(location_parts)}}},")
 
     if plate_ref:
         lines.append(f"  pages        = {{{plate_ref}}},")
 
-    # Crossref to the parent atlas entry
     lines.append(f"  crossref     = {{tolstikov1966}}")
     lines.append(f"}}")
 
     return cite_key, '\n'.join(lines)
+
+
+# Keep old name as alias for backward compatibility within this file
+generate_map_bibtex = generate_bibtex_entry
 
 
 ATLAS_PARENT_BIB = """@book{tolstikov1966,
@@ -658,12 +678,16 @@ if not df.empty and 'tiepoint_path' in df.columns and 'raw_path' in df.columns:
 
     print(f"\nFound {len(build_tasks)} georeferencing tasks from Excel")
 
-    # Register all build targets
+    # Register all build targets — deduplicate by target_tiff path to
+    # prevent "Two different environments" warnings when the same map
+    # appears on multiple Excel rows (e.g. overlapping tiepoint entries).
     registered_targets = set()
+
     for task in sorted(build_tasks, key=lambda x: x['stem']):
+
         target_key = task['target_tiff']
         if target_key in registered_targets:
-            print(f"INFO: Skipping duplicate target: {task['stem']}")
+            print(f"INFO: Skipping duplicate target: {task['stem']} (already registered)")
             continue
         registered_targets.add(target_key)
 
@@ -700,72 +724,81 @@ else:
 
 
 # ============================================================================
-# BIBTEX FOR ALL MAPS (including those without georeferencing)
+# MASTER BibTeX FILE: atlas_antarktiki_maps.bib
+# ============================================================================
+# One entry per spreadsheet row (all row types), plus the parent @book entry.
+# Saved to atlas/atlas_antarktiki_maps.bib
+# Depends on all individual per-map .bib nodes so it is always consistent.
 # ============================================================================
 
-# Resolve the root directory where existing map subdirs live.
-# We inspect already-created build_tasks to find the common parent,
-# so title-only subdirs land in exactly the same place as the georef maps.
-# Falls back to Path('atlas') if no georef tasks exist.
+def master_bibtex_builder(target, source, env):
+    """
+    SCons builder that generates the master atlas_antarktiki_maps.bib.
 
-def _infer_map_root(tasks, fallback=Path('atlas')):
-    """Return the common parent of all map_dir entries in build_tasks."""
-    if not tasks:
-        return fallback
-    from collections import Counter
-    return Counter(Path(t['map_dir']).parent for t in tasks).most_common(1)[0][0]
+    target[0]: atlas/atlas_antarktiki_maps.bib
+    source[0]: atlas_master.xlsx
+    source[1:]: all individual per-map .bib files (dependency chain)
+    env: carries MASTER_DF (pre-read DataFrame) to avoid re-reading Excel
+    """
+    master_path = str(target[0])
 
-MAP_ROOT = _infer_map_root(build_tasks if 'build_tasks' in dir() else [])
+    try:
+        df_master = pd.read_excel(str(source[0]), dtype={"Target crs": "string"})
+    except Exception as e:
+        print(f"ERROR: Could not read {source[0]} for master bib: {e}")
+        return 1
 
-if not df.empty and 'Title' in df.columns:
-
-    for idx, row in df.iterrows():
+    entries = []
+    for idx, row in df_master.iterrows():
         title = safe_field(row.get('Title', ''))
         if not title:
             continue
-
-        plate = safe_field(row.get('Plate', ''))
-        map_idx = safe_field(row.get('Map Index', ''))
-        map_subidx = safe_field(row.get('Map Subindex', ''))
-
-        # Build a stem from plate + index for maps without tiepoint paths
-        stem_parts = [f"plate_{plate}" if plate else '']
-        if map_idx:
-            stem_parts.append(f"map_{map_idx}")
-        if map_subidx:
-            stem_parts.append(map_subidx)
-        stem_parts.append(sanitise_key(title)[:30])
-        bib_stem = '_'.join(p for p in stem_parts if p)
-
-        # Guard: bib_stem must be non-empty — avoids writing directly into MAP_ROOT
-        if not bib_stem:
-            print(f"WARNING: Row {idx} produced an empty stem, skipping BibTeX generation.")
-            continue
-
-        # Only generate if not already handled by the georeferencing loop above
-        tiepoint_paths = safe_field(row.get('tiepoint_path', ''))
-        if tiepoint_paths and tiepoint_paths != '-':
-            continue
-
-        volume = 1
         raw_path_str = safe_field(row.get('raw_path', ''))
-        if 'II' in raw_path_str:
-            volume = 2
+        volume = 2 if 'II' in raw_path_str else 1
+        try:
+            _, bib_entry = generate_bibtex_entry(row, volume=volume)
+            entries.append(bib_entry)
+        except Exception as e:
+            print(f"WARNING: Row {idx} skipped in master bib: {e}")
 
-        cite_key, bib_entry = generate_map_bibtex(row, volume=volume)
+    content = (
+        f"% atlas_antarktiki_maps.bib\n"
+        f"% Master bibliography — all atlas entries\n"
+        f"% Auto-generated by SConstruct — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"% Entries: {len(entries)} (rows with a Title in {atlas_master})\n\n"
+        f"{ATLAS_PARENT_BIB}\n"
+        + "\n\n".join(entries)
+        + "\n"
+    )
 
-        # Place subdir alongside existing map subdirs — never falls through to project root
-        bib_dir = MAP_ROOT / bib_stem
-        os.makedirs(str(bib_dir), exist_ok=True)
+    os.makedirs(str(Path(master_path).parent), exist_ok=True)
+    with open(master_path, 'w', encoding='utf-8') as f:
+        f.write(content)
 
-        bib_path = str(bib_dir / f"{bib_stem}.bib")
+    print(f"OK: Master bib written to {master_path} ({len(entries)} entries)")
+    return 0
 
-        bib_env = env.Clone()
-        bib_env['BIB_ENTRY'] = bib_entry
 
-        bib_env.BibTeX(
-            target=bib_path,
-            source=atlas_master
-        )
+master_bib_action = Action(master_bibtex_builder, "Generating master BibTeX $TARGET")
+master_bib_builder_obj = Builder(action=master_bib_action)
+env.Append(BUILDERS={'MasterBibTeX': master_bib_builder_obj})
+
+# Collect all individual bib nodes registered during the georef loop
+all_bib_nodes = []
+# Re-scan registered map_dirs for their .bib files as SCons nodes
+for task in (build_tasks if 'build_tasks' in dir() else []):
+    bib_path = str(Path(task['map_dir']) / f"{task['stem']}.bib")
+    node = env.File(bib_path)
+    if node not in all_bib_nodes:
+        all_bib_nodes.append(node)
+
+master_bib_target = Path('atlas') / 'atlas_antarktiki_maps.bib'
+os.makedirs('atlas', exist_ok=True)
+
+master_bib_node = env.MasterBibTeX(
+    target=str(master_bib_target),
+    source=[atlas_master] + all_bib_nodes
+)
+print(f"Configured master bib: {master_bib_target} (depends on {len(all_bib_nodes)} individual bib files)")
 
 print("\n" + "=" * 80)
