@@ -6,7 +6,15 @@ Converting raw tiff scans to smaller jpgs and generating pdf.
 
 Watches tie point files and regenerates georeferenced maps when they change.
 
-Tobias Staal 2025
+v. 0.5.1
+Tobias Staal 2026
+
+
+# To add:
+# Run rsync to get scans
+# Update georef in spreadsheet
+
+
 """
 import os
 import re
