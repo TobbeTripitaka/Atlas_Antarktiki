@@ -28,5 +28,6 @@ atlas/**/*.tif
 atlas/**/*.xml
 atlas/**/*.jpg
 atlas/**/*.pdf
+atlas/**/*.zip
 
 **/.DS_Store
