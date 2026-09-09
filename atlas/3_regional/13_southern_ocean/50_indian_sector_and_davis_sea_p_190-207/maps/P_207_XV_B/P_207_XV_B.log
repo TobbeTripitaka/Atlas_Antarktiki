@@ -1,29 +1,31 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-07 23:57:30
+Date: 2026-09-09 22:34:53
 Source Raster: atlas/3_regional/13_southern_ocean/50_indian_sector_and_davis_sea_p_190-207/maps/P_207_XV_B/P_207_XV_B.tiff
 Target Raster: atlas/3_regional/13_southern_ocean/50_indian_sector_and_davis_sea_p_190-207/maps/P_207_XV_B.tiff
 Tie Points: atlas/3_regional/13_southern_ocean/50_indian_sector_and_davis_sea_p_190-207/maps/P_207_XV_B/P_207_XV_B.gpkg
 
-Target CRS: EPSG:9354
+Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic
+Target CRS (output):       EPSG:9354 — WGS 84 / IBCSO Polar Stereographic
 Number of tie points: 8
 Source dimensions: 4850 x 5342 pixels
 Source bands: 3
+Source declared CRS: EPSG:3031
 
 --------------------------------------------------------------------------------
 CONTROL POINTS
 --------------------------------------------------------------------------------
-ID    Pixel X    Pixel Y    Map X        Map Y        Target X     Target Y    
+ID    Pixel X    Pixel Y    Src X        Src Y        Target X     Target Y    
 --------------------------------------------------------------------------------
-1     975.9      3600.5     -1898867     -1217949     2692673      235578      
-2     2427.9     3540.5     3820         -1139320     2702959      0           
-3     3879.7     3592.5     1906189      -1207444     2692673      -235578     
-4     836.0      1886.8     -2082228     1027585      2971688      259989      
-5     2423.8     1823.2     -1592        1110988      2983039      0           
-6     4013.7     1881.6     2081750      1034429      2971688      -259989     
-7     696.9      175.6      -2264474     3269935      3253592      284652      
-8     2420.5     101.7      -5889        3366709      3266021      0           
+1     946.1      3619.6     -1937887     -1242976     2692673      235578      
+2     2428.0     3558.3     3899         -1162732     2702959      0           
+3     3909.6     3611.4     1945359      -1232256     2692673      -235578     
+4     803.3      1870.7     -2125015     1048700      2971688      259989      
+5     2423.8     1805.7     -1624        1133818      2983039      0           
+6     4046.3     1865.4     2124528      1055685      2971688      -259989     
+7     661.4      124.3      -2311007     3337129      3253592      284652      
+8     2420.4     48.9       -6010        3435891      3266021      0           
 
 --------------------------------------------------------------------------------
 RESIDUAL ANALYSIS
@@ -44,7 +46,8 @@ TRANSFORMATION STATISTICS
 --------------------------------------------------------------------------------
 Transformation type: Affine (1st-order polynomial, 6 parameters)
 Number of GCPs used: 8
-Degrees of freedom:  5
+Observations:        16 (2 per GCP)
+Degrees of freedom:  10
 
 Residual Errors:
   Mean error:        1426.43 m
@@ -52,24 +55,30 @@ Residual Errors:
   RMSE X:             882.54 m
   RMSE Y:            1186.43 m
   Std deviation:      389.62 m
-  Maximum error:     1895.95 m
+  Maximum error:     1895.95 m  (point 7)
   Minimum error:      558.76 m
+  RMSE excl. worst point:    1409.02 m (5% lower)
+
+Map scale: 1:250,000
+  RMSE on the sheet:     5.91 mm
+  Max error on sheet:    7.58 mm
+  (0.5 mm is the conventional plotting accuracy)
 
 Transformation Matrix:
-  a (scale X):          -0.377325
-  b (rotation):       -163.760565
-  c (translation X):      3282474.05
-  d (rotation):       -163.358022
-  e (scale Y):          -0.061006
-  f (translation Y):       396613.24
+  a (scale X):          -0.369727
+  b (rotation):       -160.463205
+  c (translation X):      3273648.37
+  d (rotation):       -160.068767
+  e (scale Y):          -0.059777
+  f (translation Y):       388633.51
 
 Derived Parameters:
-  Pixel size X:         0.38 m/pixel
+  Pixel size X:         0.37 m/pixel
   Pixel size Y:         0.06 m/pixel
   Rotation:         -90.1320 degrees
 
 QUALITY ASSESSMENT
 --------------------------------------------------------------------------------
-Overall quality: POOR (RMSE: 1478.68 m)
+Overall quality: POOR (RMSE 1479 m = 5.91 mm at 1:250,000)
 
 ================================================================================

@@ -1,37 +1,41 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-06 23:14:55
+Date: 2026-09-09 22:37:12
 Source Raster: atlas/2_general/8_glaciation/30_nourishment_and_physical_properties_p_96/maps/P_96_I_V/P_96_I_V.tiff
 Target Raster: atlas/2_general/8_glaciation/30_nourishment_and_physical_properties_p_96/maps/P_96_I_V.tiff
 Tie Points: atlas/2_general/8_glaciation/30_nourishment_and_physical_properties_p_96/maps/P_96_I_V/P_96_I_V.gpkg
 
-Target CRS: EPSG:3031
+Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic
+Target CRS (output):       EPSG:3031 — WGS 84 / Antarctic Polar Stereographic
 Number of tie points: 2
 Source dimensions: 1801 x 872 pixels
 Source bands: 3
+Source declared CRS: EPSG:3031
 
 --------------------------------------------------------------------------------
 CONTROL POINTS
 --------------------------------------------------------------------------------
-ID    Pixel X    Pixel Y    Map X        Map Y        Target X     Target Y    
+ID    Pixel X    Pixel Y    Src X        Src Y        Target X     Target Y    
 --------------------------------------------------------------------------------
 1     853.8      80.4       -181435      1382151      2194494      0           
 2     1717.9     83.3       3177112      1371010      2758502      0           
+WARNING: P_96_I_V.tiff: 2 tie point(s) — using Similarity (conformal: scale + rotation + translation, 4 parameters) instead of a full affine
 
 --------------------------------------------------------------------------------
 RESIDUAL ANALYSIS
 --------------------------------------------------------------------------------
 ID    dX (m)       dY (m)       Residual (m)   
 --------------------------------------------------------------------------------
-1     0.00         0.00         0.00           
-2     0.00         -0.00        0.00           
+1     -0.00        -0.00        0.00           
+2     -0.00        -0.00        0.00           
 --------------------------------------------------------------------------------
 
 TRANSFORMATION STATISTICS
 --------------------------------------------------------------------------------
-Transformation type: Affine (1st-order polynomial, 6 parameters)
+Transformation type: Similarity (conformal: scale + rotation + translation, 4 parameters) — only 2 tie points available
 Number of GCPs used: 2
+Observations:        4 (2 per GCP)
 Degrees of freedom:  0
 
 Residual Errors:
@@ -40,25 +44,31 @@ Residual Errors:
   RMSE X:               0.00 m
   RMSE Y:               0.00 m
   Std deviation:        0.00 m
-  Maximum error:        0.00 m
+  Maximum error:        0.00 m  (point 2)
   Minimum error:        0.00 m
+  RMSE excl. worst point:       0.00 m (38% lower)
+
+Map scale: 1:10,000,000
+  RMSE on the sheet:     0.00 mm
+  Max error on sheet:    0.00 mm
+  (0.5 mm is the conventional plotting accuracy)
 
 Transformation Matrix:
-  a (scale X):         652.706431
-  b (rotation):          0.000000
-  c (translation X):      1637200.89
-  d (rotation):          0.000000
-  e (scale Y):           0.000000
-  f (translation Y):           -0.00
+  a (scale X):         652.699248
+  b (rotation):          2.165187
+  c (translation X):      1637032.96
+  d (rotation):          2.165187
+  e (scale Y):        -652.699248
+  f (translation Y):        50623.31
 
 Derived Parameters:
-  Pixel size X:       652.71 m/pixel
-  Pixel size Y:         0.00 m/pixel
-  Rotation:           0.0000 degrees
+  Pixel size X:       652.70 m/pixel
+  Pixel size Y:       652.70 m/pixel
+  Rotation:           0.1901 degrees
 
 QUALITY ASSESSMENT
 --------------------------------------------------------------------------------
-Overall quality: EXCELLENT (RMSE: 0.00 m)
-WARNING: Less than 4 GCPs used. Consider adding more points.
+Overall quality: EXCELLENT (RMSE 0 m = 0.00 mm at 1:10,000,000)
+WARNING: Only 2 GCP(s) used, so the fit has 0 degree(s) of freedom and the residuals below understate the true error. Add more points.
 
 ================================================================================

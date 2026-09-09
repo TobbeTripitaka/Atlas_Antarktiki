@@ -1,20 +1,22 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-06-25 00:24:52
+Date: 2026-09-09 22:33:56
 Source Raster: atlas/3_regional/12_continent_and_islands/48_oceanic_islands_p_178-180/maps/P_180_IX/P_180_IX.tiff
 Target Raster: atlas/3_regional/12_continent_and_islands/48_oceanic_islands_p_178-180/maps/P_180_IX.tiff
 Tie Points: atlas/3_regional/12_continent_and_islands/48_oceanic_islands_p_178-180/maps/P_180_IX/P_180_IX.gpkg
 
-Target CRS: EPSG:3031
+Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic
+Target CRS (output):       EPSG:3031 — WGS 84 / Antarctic Polar Stereographic
 Number of tie points: 3
 Source dimensions: 2016 x 5832 pixels
 Source bands: 3
+Source declared CRS: EPSG:3031
 
 --------------------------------------------------------------------------------
 CONTROL POINTS
 --------------------------------------------------------------------------------
-ID    Pixel X    Pixel Y    Map X        Map Y        Target X     Target Y    
+ID    Pixel X    Pixel Y    Src X        Src Y        Target X     Target Y    
 --------------------------------------------------------------------------------
 1     579.9      5030.5     -513829      -2538011     1426522      -3684143    
 2     575.8      3572.1     -518738      -787500      1430108      -3693405    
@@ -34,6 +36,7 @@ TRANSFORMATION STATISTICS
 --------------------------------------------------------------------------------
 Transformation type: Affine (1st-order polynomial, 6 parameters)
 Number of GCPs used: 3
+Observations:        6 (2 per GCP)
 Degrees of freedom:  0
 
 Residual Errors:
@@ -42,8 +45,14 @@ Residual Errors:
   RMSE X:               0.00 m
   RMSE Y:               0.00 m
   Std deviation:        0.00 m
-  Maximum error:        0.00 m
+  Maximum error:        0.00 m  (point 1)
   Minimum error:        0.00 m
+  RMSE excl. worst point:       0.00 m (0% lower)
+
+Map scale: 1:100,000
+  RMSE on the sheet:     0.00 mm
+  Max error on sheet:    0.00 mm
+  (0.5 mm is the conventional plotting accuracy)
 
 Transformation Matrix:
   a (scale X):           1.467145
@@ -60,7 +69,7 @@ Derived Parameters:
 
 QUALITY ASSESSMENT
 --------------------------------------------------------------------------------
-Overall quality: EXCELLENT (RMSE: 0.00 m)
-WARNING: Less than 4 GCPs used. Consider adding more points.
+Overall quality: EXCELLENT (RMSE 0 m = 0.00 mm at 1:100,000)
+WARNING: Only 3 GCP(s) used, so the fit has 0 degree(s) of freedom and the residuals below understate the true error. Add more points.
 
 ================================================================================

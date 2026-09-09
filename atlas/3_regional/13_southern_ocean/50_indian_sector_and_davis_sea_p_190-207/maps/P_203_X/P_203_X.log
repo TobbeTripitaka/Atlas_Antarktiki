@@ -1,39 +1,42 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-08 22:48:25
+Date: 2026-09-09 22:34:48
 Source Raster: atlas/3_regional/13_southern_ocean/50_indian_sector_and_davis_sea_p_190-207/maps/P_203_X/P_203_X.tiff
 Target Raster: atlas/3_regional/13_southern_ocean/50_indian_sector_and_davis_sea_p_190-207/maps/P_203_X.tiff
 Tie Points: atlas/3_regional/13_southern_ocean/50_indian_sector_and_davis_sea_p_190-207/maps/P_203_X/P_203_X.gpkg
 
-Target CRS: EPSG:9354
+Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic
+Target CRS (output):       EPSG:9354 — WGS 84 / IBCSO Polar Stereographic
 Number of tie points: 3
 Source dimensions: 2750 x 1560 pixels
 Source bands: 3
+Source declared CRS: EPSG:3031
 
 --------------------------------------------------------------------------------
 CONTROL POINTS
 --------------------------------------------------------------------------------
-ID    Pixel X    Pixel Y    Map X        Map Y        Target X     Target Y    
+ID    Pixel X    Pixel Y    Src X        Src Y        Target X     Target Y    
 --------------------------------------------------------------------------------
-1     679.3      594.5      -1770788     472175       2692673      235578      
-2     1406.6     569.0      80348        536998       2702959      0           
-3     2131.6     598.8      1925959      461126       2692673      -235578     
+1     665.0      590.7      -1807176     481878       2692673      235578      
+2     1407.2     564.7      81999        548033       2702959      0           
+3     2147.2     595.1      1965536      470602       2692673      -235578     
 
 --------------------------------------------------------------------------------
 RESIDUAL ANALYSIS
 --------------------------------------------------------------------------------
 ID    dX (m)       dY (m)       Residual (m)   
 --------------------------------------------------------------------------------
-1     -0.00        0.00         0.00           
-2     -0.00        0.00         0.00           
-3     -0.00        -0.00        0.00           
+1     0.00         0.00         0.00           
+2     0.00         0.00         0.00           
+3     0.00         0.00         0.00           
 --------------------------------------------------------------------------------
 
 TRANSFORMATION STATISTICS
 --------------------------------------------------------------------------------
 Transformation type: Affine (1st-order polynomial, 6 parameters)
 Number of GCPs used: 3
+Observations:        6 (2 per GCP)
 Degrees of freedom:  0
 
 Residual Errors:
@@ -42,25 +45,31 @@ Residual Errors:
   RMSE X:               0.00 m
   RMSE Y:               0.00 m
   Std deviation:        0.00 m
-  Maximum error:        0.00 m
+  Maximum error:        0.00 m  (point 1)
   Minimum error:        0.00 m
+  RMSE excl. worst point:       0.00 m (8% lower)
+
+Map scale: 1:5,000,000
+  RMSE on the sheet:     0.00 mm
+  Max error on sheet:    0.00 mm
+  (0.5 mm is the conventional plotting accuracy)
 
 Transformation Matrix:
-  a (scale X):           1.112272
-  b (rotation):       -372.129119
-  c (translation X):      2913149.35
-  d (rotation):       -324.384417
-  e (scale Y):         -12.737608
-  f (translation Y):       463515.99
+  a (scale X):           1.089876
+  b (rotation):       -364.636206
+  c (translation X):      2907335.67
+  d (rotation):       -317.852855
+  e (scale Y):         -12.481133
+  f (translation Y):       454335.05
 
 Derived Parameters:
-  Pixel size X:         1.11 m/pixel
-  Pixel size Y:        12.74 m/pixel
+  Pixel size X:         1.09 m/pixel
+  Pixel size Y:        12.48 m/pixel
   Rotation:         -89.8287 degrees
 
 QUALITY ASSESSMENT
 --------------------------------------------------------------------------------
-Overall quality: EXCELLENT (RMSE: 0.00 m)
-WARNING: Less than 4 GCPs used. Consider adding more points.
+Overall quality: EXCELLENT (RMSE 0 m = 0.00 mm at 1:5,000,000)
+WARNING: Only 3 GCP(s) used, so the fit has 0 degree(s) of freedom and the residuals below understate the true error. Add more points.
 
 ================================================================================

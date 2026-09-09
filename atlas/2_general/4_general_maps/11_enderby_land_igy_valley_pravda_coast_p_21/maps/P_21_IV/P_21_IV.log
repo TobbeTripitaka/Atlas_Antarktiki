@@ -1,20 +1,22 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-06-30 23:10:23
+Date: 2026-09-09 22:35:23
 Source Raster: atlas/2_general/4_general_maps/11_enderby_land_igy_valley_pravda_coast_p_21/maps/P_21_IV/P_21_IV.tiff
 Target Raster: atlas/2_general/4_general_maps/11_enderby_land_igy_valley_pravda_coast_p_21/maps/P_21_IV.tiff
 Tie Points: atlas/2_general/4_general_maps/11_enderby_land_igy_valley_pravda_coast_p_21/maps/P_21_IV/P_21_IV.gpkg
 
-Target CRS: EPSG:3031
+Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic
+Target CRS (output):       EPSG:3031 — WGS 84 / Antarctic Polar Stereographic
 Number of tie points: 16
 Source dimensions: 8250 x 4813 pixels
 Source bands: 3
+Source declared CRS: EPSG:3031
 
 --------------------------------------------------------------------------------
 CONTROL POINTS
 --------------------------------------------------------------------------------
-ID    Pixel X    Pixel Y    Map X        Map Y        Target X     Target Y    
+ID    Pixel X    Pixel Y    Src X        Src Y        Target X     Target Y    
 --------------------------------------------------------------------------------
 1     1113.7     2319.2     -2555020     74092        1681080      1410594     
 2     382.5      741.4      -3175423     1412783      2113135      1773131     
@@ -60,7 +62,8 @@ TRANSFORMATION STATISTICS
 --------------------------------------------------------------------------------
 Transformation type: Affine (1st-order polynomial, 6 parameters)
 Number of GCPs used: 16
-Degrees of freedom:  13
+Observations:        32 (2 per GCP)
+Degrees of freedom:  26
 
 Residual Errors:
   Mean error:      195250.05 m
@@ -68,8 +71,14 @@ Residual Errors:
   RMSE X:          360124.66 m
   RMSE Y:          131633.83 m
   Std deviation:   329991.90 m
-  Maximum error:  1439599.97 m
+  Maximum error:  1439599.97 m  (point 11)
   Minimum error:    21373.20 m
+  RMSE excl. worst point:  136583.98 m (64% lower)
+
+Map scale: 1:5,000,000
+  RMSE on the sheet:    76.69 mm
+  Max error on sheet:  287.92 mm
+  (0.5 mm is the conventional plotting accuracy)
 
 Transformation Matrix:
   a (scale X):          84.366695
@@ -86,8 +95,8 @@ Derived Parameters:
 
 QUALITY ASSESSMENT
 --------------------------------------------------------------------------------
-Overall quality: POOR (RMSE: 383428.27 m)
-WARNING: Point 11 has unusually high residual.
-         Consider checking this control point.
+Overall quality: POOR (RMSE 383428 m = 76.69 mm at 1:5,000,000)
+WARNING: Point 11 has an unusually high residual (1439600 m vs 195250 m mean).
+         Dropping it would reduce RMSE to 136584 m. Check that point's lon/lat against its plotted position.
 
 ================================================================================

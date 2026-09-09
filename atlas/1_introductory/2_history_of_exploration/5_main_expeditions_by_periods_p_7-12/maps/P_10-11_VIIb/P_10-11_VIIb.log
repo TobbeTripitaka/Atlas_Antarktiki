@@ -1,20 +1,22 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-06-25 23:47:56
+Date: 2026-09-09 22:31:35
 Source Raster: atlas/1_introductory/2_history_of_exploration/5_main_expeditions_by_periods_p_7-12/maps/P_10-11_VIIb/P_10-11_VIIb.tiff
 Target Raster: atlas/1_introductory/2_history_of_exploration/5_main_expeditions_by_periods_p_7-12/maps/P_10-11_VIIb.tiff
 Tie Points: atlas/1_introductory/2_history_of_exploration/5_main_expeditions_by_periods_p_7-12/maps/P_10-11_VIIb/P_10-11_VIIb.gpkg
 
-Target CRS: EPSG:3031
+Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic
+Target CRS (output):       EPSG:3031 — WGS 84 / Antarctic Polar Stereographic
 Number of tie points: 19
 Source dimensions: 8311 x 5192 pixels
 Source bands: 3
+Source declared CRS: EPSG:3031
 
 --------------------------------------------------------------------------------
 CONTROL POINTS
 --------------------------------------------------------------------------------
-ID    Pixel X    Pixel Y    Map X        Map Y        Target X     Target Y    
+ID    Pixel X    Pixel Y    Src X        Src Y        Target X     Target Y    
 --------------------------------------------------------------------------------
 1     3944.2     1006.6     -177989      1338671      0            -1089179    
 2     4799.4     153.5      542350       2057186      1089179      0           
@@ -66,7 +68,8 @@ TRANSFORMATION STATISTICS
 --------------------------------------------------------------------------------
 Transformation type: Affine (1st-order polynomial, 6 parameters)
 Number of GCPs used: 19
-Degrees of freedom:  16
+Observations:        38 (2 per GCP)
+Degrees of freedom:  32
 
 Residual Errors:
   Mean error:       64464.67 m
@@ -74,8 +77,14 @@ Residual Errors:
   RMSE X:           45931.15 m
   RMSE Y:           64583.51 m
   Std deviation:    46097.79 m
-  Maximum error:   224389.93 m
+  Maximum error:   224389.93 m  (point 12)
   Minimum error:     4909.35 m
+  RMSE excl. worst point:   61906.05 m (22% lower)
+
+Map scale: 1:20,000,000
+  RMSE on the sheet:     3.96 mm
+  Max error on sheet:   11.22 mm
+  (0.5 mm is the conventional plotting accuracy)
 
 Transformation Matrix:
   a (scale X):        1310.946195
@@ -92,8 +101,8 @@ Derived Parameters:
 
 QUALITY ASSESSMENT
 --------------------------------------------------------------------------------
-Overall quality: POOR (RMSE: 79250.87 m)
-WARNING: Point 12 has unusually high residual.
+Overall quality: POOR (RMSE 79251 m = 3.96 mm at 1:20,000,000)
+WARNING: Point 12 has an unusually high residual (224390 m vs 64465 m mean).
          Consider checking this control point.
 
 ================================================================================

@@ -1,27 +1,29 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-07 23:57:27
+Date: 2026-09-09 22:34:50
 Source Raster: atlas/3_regional/13_southern_ocean/50_indian_sector_and_davis_sea_p_190-207/maps/P_205-206_XIVb/P_205-206_XIVb.tiff
 Target Raster: atlas/3_regional/13_southern_ocean/50_indian_sector_and_davis_sea_p_190-207/maps/P_205-206_XIVb.tiff
 Tie Points: atlas/3_regional/13_southern_ocean/50_indian_sector_and_davis_sea_p_190-207/maps/P_205-206_XIVb/P_205-206_XIVb.gpkg
 
-Target CRS: EPSG:9354
+Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic
+Target CRS (output):       EPSG:9354 — WGS 84 / IBCSO Polar Stereographic
 Number of tie points: 6
 Source dimensions: 5214 x 8220 pixels
 Source bands: 3
+Source declared CRS: EPSG:3031
 
 --------------------------------------------------------------------------------
 CONTROL POINTS
 --------------------------------------------------------------------------------
-ID    Pixel X    Pixel Y    Map X        Map Y        Target X     Target Y    
+ID    Pixel X    Pixel Y    Src X        Src Y        Target X     Target Y    
 --------------------------------------------------------------------------------
-1     3012.6     821.7      345440       2800230      2799243      -294212     
-2     226.7      820.4      -2027042     2801381      2810805      -147308     
-3     3007.0     2986.6     340652       956690       2688152      -282536     
-4     221.7      2982.1     -2031277     960465       2699255      -141462     
-5     3000.5     5234.7     335128       -957796      2577474      -270903     
-6     216.1      5224.3     -2036065     -948957      2588119      -135638     
+1     3021.0     754.2      352539       2857772      2799243      -294212     
+2     177.8      752.8      -2068695     2858946      2810805      -147308     
+3     3015.2     2963.5     347652       976349       2688152      -282536     
+4     172.7      2959.0     -2073018     980202       2699255      -141462     
+5     3008.6     5257.8     342014       -977478      2577474      -270903     
+6     166.9      5247.2     -2077904     -968457      2588119      -135638     
 
 --------------------------------------------------------------------------------
 RESIDUAL ANALYSIS
@@ -40,7 +42,8 @@ TRANSFORMATION STATISTICS
 --------------------------------------------------------------------------------
 Transformation type: Affine (1st-order polynomial, 6 parameters)
 Number of GCPs used: 6
-Degrees of freedom:  3
+Observations:        12 (2 per GCP)
+Degrees of freedom:  6
 
 Residual Errors:
   Mean error:        2505.88 m
@@ -48,24 +51,30 @@ Residual Errors:
   RMSE X:            1105.78 m
   RMSE Y:            2354.73 m
   Std deviation:      698.61 m
-  Maximum error:     3029.35 m
+  Maximum error:     3029.35 m  (point 2)
   Minimum error:     1494.45 m
+  RMSE excl. worst point:    2507.11 m (4% lower)
+
+Map scale: 1:750,000
+  RMSE on the sheet:     3.47 mm
+  Max error on sheet:    4.04 mm
+  (0.5 mm is the conventional plotting accuracy)
 
 Transformation Matrix:
-  a (scale X):          -3.889069
-  b (rotation):        -50.412655
-  c (translation X):      2851943.87
-  d (rotation):        -50.660831
-  e (scale Y):           3.837618
-  f (translation Y):      -141795.34
+  a (scale X):          -3.810762
+  b (rotation):        -49.397584
+  c (translation X):      2847567.78
+  d (rotation):        -49.640763
+  e (scale Y):           3.760347
+  f (translation Y):      -144137.08
 
 Derived Parameters:
-  Pixel size X:         3.89 m/pixel
-  Pixel size Y:         3.84 m/pixel
+  Pixel size X:         3.81 m/pixel
+  Pixel size Y:         3.76 m/pixel
   Rotation:         -94.4113 degrees
 
 QUALITY ASSESSMENT
 --------------------------------------------------------------------------------
-Overall quality: POOR (RMSE: 2601.44 m)
+Overall quality: POOR (RMSE 2601 m = 3.47 mm at 1:750,000)
 
 ================================================================================

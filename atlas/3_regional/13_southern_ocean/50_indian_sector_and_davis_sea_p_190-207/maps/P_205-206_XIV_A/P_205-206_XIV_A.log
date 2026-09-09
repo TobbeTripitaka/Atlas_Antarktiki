@@ -1,23 +1,26 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-08 22:48:26
+Date: 2026-09-09 22:34:48
 Source Raster: atlas/3_regional/13_southern_ocean/50_indian_sector_and_davis_sea_p_190-207/maps/P_205-206_XIV_A/P_205-206_XIV_A.tiff
 Target Raster: atlas/3_regional/13_southern_ocean/50_indian_sector_and_davis_sea_p_190-207/maps/P_205-206_XIV_A.tiff
 Tie Points: atlas/3_regional/13_southern_ocean/50_indian_sector_and_davis_sea_p_190-207/maps/P_205-206_XIV_A/P_205-206_XIV_A.gpkg
 
-Target CRS: EPSG:9354
+Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic
+Target CRS (output):       EPSG:9354 — WGS 84 / IBCSO Polar Stereographic
 Number of tie points: 2
 Source dimensions: 2087 x 1948 pixels
 Source bands: 3
+Source declared CRS: EPSG:3031
 
 --------------------------------------------------------------------------------
 CONTROL POINTS
 --------------------------------------------------------------------------------
-ID    Pixel X    Pixel Y    Map X        Map Y        Target X     Target Y    
+ID    Pixel X    Pixel Y    Src X        Src Y        Target X     Target Y    
 --------------------------------------------------------------------------------
-1     1953.6     1819.1     3052626      -2834530     2525317      -213536     
-2     136.9      100.8      -3040728     2928817      2537339      -202664     
+1     1972.3     1836.5     3115354      -2892777     2525317      -213536     
+2     118.3      82.9       -3103212     2989001      2537339      -202664     
+WARNING: P_205-206_XIV_A.tiff: 2 tie point(s) — using Similarity (conformal: scale + rotation + translation, 4 parameters) instead of a full affine
 
 --------------------------------------------------------------------------------
 RESIDUAL ANALYSIS
@@ -30,8 +33,9 @@ ID    dX (m)       dY (m)       Residual (m)
 
 TRANSFORMATION STATISTICS
 --------------------------------------------------------------------------------
-Transformation type: Affine (1st-order polynomial, 6 parameters)
+Transformation type: Similarity (conformal: scale + rotation + translation, 4 parameters) — only 2 tie points available
 Number of GCPs used: 2
+Observations:        4 (2 per GCP)
 Degrees of freedom:  0
 
 Residual Errors:
@@ -40,25 +44,31 @@ Residual Errors:
   RMSE X:               0.00 m
   RMSE Y:               0.00 m
   Std deviation:        0.00 m
-  Maximum error:        0.00 m
+  Maximum error:        0.00 m  (point 1)
   Minimum error:        0.00 m
+  RMSE excl. worst point:       0.00 m (92% lower)
+
+Map scale: 1:100,000
+  RMSE on the sheet:     0.00 mm
+  Max error on sheet:    0.00 mm
+  (0.5 mm is the conventional plotting accuracy)
 
 Transformation Matrix:
-  a (scale X):          -6.617291
-  b (rotation):          0.000000
-  c (translation X):      2538244.63
-  d (rotation):          0.000000
-  e (scale Y):          -6.327532
-  f (translation Y):      -202026.00
+  a (scale X):          -0.494728
+  b (rotation):         -6.332269
+  c (translation X):      2537921.69
+  d (rotation):         -6.332269
+  e (scale Y):           0.494728
+  f (translation Y):      -201955.66
 
 Derived Parameters:
-  Pixel size X:         6.62 m/pixel
-  Pixel size Y:         6.33 m/pixel
-  Rotation:         180.0000 degrees
+  Pixel size X:         0.49 m/pixel
+  Pixel size Y:         0.49 m/pixel
+  Rotation:         -94.4673 degrees
 
 QUALITY ASSESSMENT
 --------------------------------------------------------------------------------
-Overall quality: EXCELLENT (RMSE: 0.00 m)
-WARNING: Less than 4 GCPs used. Consider adding more points.
+Overall quality: EXCELLENT (RMSE 0 m = 0.00 mm at 1:100,000)
+WARNING: Only 2 GCP(s) used, so the fit has 0 degree(s) of freedom and the residuals below understate the true error. Add more points.
 
 ================================================================================

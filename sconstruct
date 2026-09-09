@@ -5,19 +5,85 @@ SCons build file for atlas georeferencing workflow.
 Converting raw tiff scans to smaller jpgs and generating pdf.
 
 Watches tie point files and regenerates georeferenced maps when they change.
+Also builds per-map and master BibTeX files, and one zip archive per
+subsection directory.
 
-v. 0.5.1
+v. 0.7.2
 Tobias Staal 2026
 
+Changes in 0.7.2
+----------------
+* Editing one spreadsheet cell no longer rebuilds every map. Individual
+  targets previously depended on the whole workbook, so any change to
+  atlas_master.xlsx invalidated all 497 georeferencing tasks, all per-map
+  .bib files and all archives. Each target now depends only on what it
+  actually consumes: tie points and raw scan (plus Target crs and Scale via
+  the action varlist) for a map, the rendered entry for a .bib, and its own
+  members for an archive. Only the master .bib still reads the workbook.
+
+Changes in 0.7.1
+----------------
+* ImageMagick and Ghostscript now run through Python function actions with
+  explicit argv lists. SCons splits command *strings* on whitespace when
+  building argv, which quoting does not prevent, so the space in
+  'LZW compression TIFF/...' made ImageMagick fail with
+  "no decode delegate for this image format `LZW'".
+* Subsection archives are no longer part of the default build (they are
+  multi-GB); build them with 'scons zip'. 'scons zip zip_raw=0' omits the
+  raw pre-georeferencing scans.
+* Archives store already-compressed payloads (TIFF/JPEG/PDF) instead of
+  deflating them again, which is much faster at almost identical size.
+
+Changes in 0.7.0
+----------------
+* Tie point layer is selected explicitly ('tie_points' preferred), so
+  QGIS GPKGs carrying a 'layer_styles' table no longer emit a
+  'More than one layer found' warning or depend on layer order.
+* Sparse tie point sets no longer abort the build: 3+ points fit an affine,
+  2 points fit a conformal similarity (scale + rotation + translation),
+  1 point fits a translation keeping the source scale and rotation. The
+  transform actually used is named in the log.
+* Quality grading is scale-aware. Residuals are also reported in millimetres
+  on the printed sheet using the Scale column, graded against the 0.5 mm
+  plotting convention, instead of fixed metre thresholds that are
+  meaningless from 1:2,000 to 1:180,000,000.
+* Logs report the worst point and the RMSE excluding it, so a single
+  mistyped lon/lat is easy to spot.
+
+Changes in 0.6.0
+----------------
+* Volume is now an explicit constant (ATLAS_VOLUME); the old heuristic
+  ("'II' in raw_path") mis-tagged 193 rows because Map Index uses Roman
+  numerals in filenames such as P_7_II.tiff.
+* volume_I.csv / volume_II.csv are optional. A missing or malformed file
+  warns and skips only that compiled PDF instead of aborting the build.
+* Georeferencing no longer assumes the raw raster's transform is in the
+  target CRS. Pixel lookup uses SOURCE_CRS (3031); the output is written
+  in Target crs. A mismatch with src.crs is logged as a WARNING.
+* Tie point layers are checked for a CRS and for lon/lat columns, and are
+  reprojected to EPSG:4326 when needed.
+* BibTeX keys are ASCII-folded and stripped of parentheses; duplicate keys
+  are disambiguated. Field values escape a fuller set of TeX specials.
+* Degrees of freedom reported as 2n-6 (affine on n points).
+* Builders declare varlist so BIB_ENTRY / TARGET_CRS changes are part of
+  the target signature.
+* Paths with spaces are quoted in magick command lines.
+* Rasters are copied band-by-band with BIGTIFF=IF_SAFER; outputs are
+  written to a temporary file and renamed, so a failed build never leaves
+  a truncated target.
+* NEW: one zip archive per subsection directory, written beside it.
 
 # To add:
 # Run rsync to get scans
 # Update georef in spreadsheet
-
-
 """
 import os
 import re
+import csv
+import shutil
+import subprocess
+import unicodedata
+import zipfile
 from pathlib import Path
 from datetime import datetime
 
@@ -27,19 +93,28 @@ import geopandas as gpd
 import rasterio
 from rasterio.control import GroundControlPoint
 from rasterio.transform import from_gcps
+from affine import Affine
 import pyproj
 from pyproj import CRS
-import csv
 
 from SCons.Script import Action, Builder
 
 # ============================================================================
-# SINGLE ENVIRONMENT DEFINITION
+# CONFIGURATION
 # ============================================================================
 
-env = Environment(ENV=os.environ.copy())
-
 atlas_master = 'atlas_master.xlsx'
+
+# All plate rows in atlas_master.xlsx belong to Volume I. Volume II is the
+# text volume and contributes OCR PDFs only, not georeferenced plates.
+ATLAS_VOLUME = 1
+
+# CRS of the incoming (already roughly georeferenced) raw rasters. Used only
+# to convert tie point geometries into source pixel coordinates.
+SOURCE_CRS = 3031
+
+# CRS used for output when the spreadsheet leaves "Target crs" empty.
+DEFAULT_CRS = 3031
 
 # Export directory
 export_dir = 'export'
@@ -55,68 +130,121 @@ for d in [jpg_large_dir, jpg_small_dir, pdf_bw_I_dir, pdf_bw_II_dir]:
 
 
 # ============================================================================
+# SINGLE ENVIRONMENT DEFINITION
+# ============================================================================
+
+env = Environment(ENV=os.environ.copy())
+
+
+# ============================================================================
 # IMAGE CONVERSION AND PDF GENERATION
 # ============================================================================
 
-def create_magick_action(command):
-    """Create Action with stable command string for MD5 calculation."""
-    return Action(command, cmdstr=command.replace('$', '$$'))
+# ----------------------------------------------------------------------------
+# IMPORTANT: these run through Python function actions, not command strings.
+#
+# The scan directories contain a space ("LZW compression TIFF/Atlas Antarktiki
+# II"). SCons splits a command *string* on whitespace when it builds the argv
+# list, and quoting does not prevent that — the split happens after
+# substitution, so 'magick "$SOURCE"' turns into the arguments "LZW,
+# compression, TIFF/Atlas, ... and ImageMagick reports
+#     no decode delegate for this image format `LZW'
+# Passing an explicit argv list to subprocess removes the shell and the
+# splitting entirely, so paths with spaces (or quotes, or brackets) are safe.
+# ----------------------------------------------------------------------------
 
+MAGICK = 'magick'
+GHOSTSCRIPT = 'gs'
+
+MAGICK_LARGE_JPG_ARGS = [
+    '-define', 'registry:warning=none', '-compress', 'JPEG',
+    '-quality', '90%', '-level', '2%,98%',
+]
+MAGICK_SMALL_JPG_ARGS = [
+    '-define', 'registry:warning=none', '-resize', '50%', '-compress', 'JPEG',
+    '-quality', '55%', '-level', '4%,96%',
+]
+MAGICK_PDF_I_ARGS = [
+    '-define', 'registry:warning=none', '-density', '400', '-colorspace', 'gray',
+    '-normalize', '-level', '4%,96%', '-background', 'white', '-flatten',
+    '-morphology', 'Close', 'Diamond:1', '-sharpen', '0x1.0', '-deskew', '40%',
+    '-quality', '75', '-compress', 'jpeg',
+]
+MAGICK_PDF_II_ARGS = [
+    '-define', 'registry:warning=none', '-density', '300', '-colorspace', 'gray',
+    '-level', '4%,96%', '-background', 'white', '-flatten',
+    '-morphology', 'Close', 'Diamond:1', '-sharpen', '0x1.0', '-deskew', '40%',
+    '-quality', '75', '-compress', 'jpeg',
+]
+
+
+def run_argv(argv, description):
+    """Run a command from an argv list. Returns 0 on success, 1 on failure."""
+    try:
+        result = subprocess.run(argv, check=False)
+    except FileNotFoundError:
+        print(f"ERROR: {argv[0]} not found on PATH — cannot {description}")
+        return 1
+    if result.returncode != 0:
+        print(f"ERROR: {argv[0]} exited {result.returncode} while trying to {description}")
+        return 1
+    return 0
+
+
+def magick_builder(target, source, env):
+    """Run ImageMagick with MAGICK_ARGS, source and target passed as argv."""
+    src_path = str(source[0])
+    tgt_path = str(target[0])
+    argv = [MAGICK, src_path] + list(env['MAGICK_ARGS']) + [tgt_path]
+    return run_argv(argv, f"convert {os.path.basename(src_path)}")
+
+
+magick_action = Action(magick_builder, "Converting $SOURCE -> $TARGET",
+                       varlist=['MAGICK_ARGS'])
+env.Append(BUILDERS={'Magick': Builder(action=magick_action)})
+
+
+def ghostscript_builder(target, source, env):
+    """Merge PDFs with Ghostscript, page order given by the source order."""
+    tgt_path = str(target[0])
+    argv = [GHOSTSCRIPT, '-sDEVICE=pdfwrite', '-dNOPAUSE', '-dBATCH', '-dSAFER',
+            f'-sOutputFile={tgt_path}', '-dAutoRotatePages=/None',
+            '-dPDFSETTINGS=/ebook', '-dCompatibilityLevel=1.4']
+    argv += [str(s) for s in source]
+    return run_argv(argv, f"compile {os.path.basename(tgt_path)} "
+                          f"from {len(source)} page(s)")
+
+
+ghostscript_action = Action(ghostscript_builder, "Compiling PDF $TARGET")
+env.Append(BUILDERS={'MergePDF': Builder(action=ghostscript_action)})
+
+# One environment per argument set, reused for every scan, so the arguments
+# are part of each target's signature (via varlist) without cloning per file.
+env_large_jpg = env.Clone(MAGICK_ARGS=MAGICK_LARGE_JPG_ARGS)
+env_small_jpg = env.Clone(MAGICK_ARGS=MAGICK_SMALL_JPG_ARGS)
+env_pdf_I = env.Clone(MAGICK_ARGS=MAGICK_PDF_I_ARGS)
+env_pdf_II = env.Clone(MAGICK_ARGS=MAGICK_PDF_II_ARGS)
+
+image_nodes = []
 
 # Build images and PDFs for Volume I
 pdf_I_nodes = {}
 for tiff in Glob('LZW compression TIFF/Atlas Antarktiki I/*.tif'):
     base_name = os.path.splitext(os.path.basename(str(tiff)))[0]
 
-    # Large JPG
-    large_jpg = f'{jpg_large_dir}/{base_name}.jpg'
-    env.Command(
-        target=large_jpg,
-        source=tiff,
-        action=create_magick_action(
-            'magick $SOURCE -define registry:warning=none -compress JPEG '
-            '-quality 90% -level 2%,98% $TARGET'
-        )
-    )
+    large = env_large_jpg.Magick(target=f'{jpg_large_dir}/{base_name}.jpg', source=tiff)
+    small = env_small_jpg.Magick(target=f'{jpg_small_dir}/{base_name}.jpg', source=tiff)
+    node = env_pdf_I.Magick(target=f'{pdf_bw_I_dir}/{base_name}.pdf', source=tiff)
 
-    # Small JPG
-    small_jpg = f'{jpg_small_dir}/{base_name}.jpg'
-    env.Command(
-        target=small_jpg,
-        source=tiff,
-        action=create_magick_action(
-            'magick $SOURCE -define registry:warning=none -resize 50% -compress JPEG '
-            '-quality 55% -level 4%,96% $TARGET'
-        )
-    )
-
-    # PDF for OCR
-    pdf = f'{pdf_bw_I_dir}/{base_name}.pdf'
-    node = env.Command(
-        target=pdf,
-        source=tiff,
-        action=create_magick_action(
-            'magick $SOURCE -define registry:warning=none -density 400 -colorspace gray '
-            '-normalize -level 4%,96% -background white -flatten -morphology Close Diamond:1 '
-            '-sharpen 0x1.0 -deskew 40% -quality 75 -compress jpeg $TARGET'
-        )
-    )
+    image_nodes.extend(list(large) + list(small) + list(node))
     pdf_I_nodes[base_name] = node[0]
 
 # Build OCR PDFs for Volume II
 pdf_II_nodes = {}
 for tiff in Glob('LZW compression TIFF/Atlas Antarktiki II/*.tif'):
     base_name = os.path.splitext(os.path.basename(str(tiff)))[0]
-    pdf = f'{pdf_bw_II_dir}/{base_name}.pdf'
-    node = env.Command(
-        target=pdf,
-        source=tiff,
-        action=create_magick_action(
-            'magick $SOURCE -define registry:warning=none -density 300 -colorspace gray '
-            '-level 4%,96% -background white -flatten -morphology Close Diamond:1 '
-            '-sharpen 0x1.0 -deskew 40% -quality 75 -compress jpeg $TARGET'
-        )
-    )
+    node = env_pdf_II.Magick(target=f'{pdf_bw_II_dir}/{base_name}.pdf', source=tiff)
+    image_nodes.extend(list(node))
     pdf_II_nodes[base_name] = node[0]
 
 
@@ -125,96 +253,154 @@ for tiff in Glob('LZW compression TIFF/Atlas Antarktiki II/*.tif'):
 # ============================================================================
 
 def get_ordered_nodes(csv_filename, node_dict):
-    """Read CSV to determine page ordering for compiled PDF."""
-    ordered = []
-    with open(csv_filename, newline='', encoding='utf-8') as csvfile:
-        reader = csv.DictReader(csvfile)
-        rows = []
-        for row in reader:
-            raw_path = row.get('Raw path', '').strip()
-            compile_order = row.get('Compile order', '').strip()
-            if raw_path and compile_order.isdigit():
+    """
+    Read CSV to determine page ordering for compiled PDF.
+
+    Returns [] when the CSV is missing or unusable, so a compiled PDF can be
+    skipped without aborting the rest of the build.
+    """
+    if not os.path.isfile(csv_filename):
+        print(f"WARNING: Page-order file not found: {csv_filename} "
+              f"— skipping the compiled PDF for this volume.")
+        return []
+
+    rows = []
+    try:
+        with open(csv_filename, newline='', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            fieldnames = reader.fieldnames or []
+            missing = [c for c in ('Raw path', 'Compile order') if c not in fieldnames]
+            if missing:
+                print(f"WARNING: {csv_filename} is missing column(s) {missing} "
+                      f"(found {fieldnames}) — skipping the compiled PDF.")
+                return []
+
+            unmatched = 0
+            for row in reader:
+                raw_path = (row.get('Raw path') or '').strip()
+                compile_order = (row.get('Compile order') or '').strip()
+                if not raw_path or not compile_order.isdigit():
+                    continue
                 base = os.path.splitext(os.path.basename(raw_path))[0]
                 if base in node_dict:
-                    rows.append((int(compile_order), node_dict[base]))
-        rows.sort()
-        ordered = [node for _, node in rows]
-    return ordered
+                    rows.append((int(compile_order), base, node_dict[base]))
+                else:
+                    unmatched += 1
+
+            if unmatched:
+                print(f"WARNING: {csv_filename}: {unmatched} row(s) reference pages "
+                      f"with no matching scan — they are omitted from the compiled PDF.")
+    except Exception as e:
+        print(f"WARNING: Could not read {csv_filename}: {e} — skipping the compiled PDF.")
+        return []
+
+    rows.sort(key=lambda item: (item[0], item[1]))
+    return [node for _, _, node in rows]
 
 
-volume_I_csv_file = 'volume_I.csv'
-volume_II_csv_file = 'volume_II.csv'
+compiled_pdfs = []
 
-volume_I_ordered_nodes = get_ordered_nodes(volume_I_csv_file, pdf_I_nodes)
-volume_II_ordered_nodes = get_ordered_nodes(volume_II_csv_file, pdf_II_nodes)
-
-# Compile complete PDF for Volume I (with CSV as dependency)
-vol_I_pdf = env.Command(
-    target=f'{export_dir}/atlas_antarktiki_I_complete.pdf',
-    source=volume_I_ordered_nodes,
-    action='gs -sDEVICE=pdfwrite -dNOPAUSE -dBATCH -dSAFER '
-           '-sOutputFile="$TARGET" -dAutoRotatePages=/None '
-           '-dPDFSETTINGS=/ebook -dCompatibilityLevel=1.4 $SOURCES'
-)
-env.Depends(vol_I_pdf, volume_I_csv_file)
-
-# Compile complete PDF for Volume II (with CSV as dependency)
-vol_II_pdf = env.Command(
-    target=f'{export_dir}/atlas_antarktiki_II_complete.pdf',
-    source=volume_II_ordered_nodes,
-    action='gs -sDEVICE=pdfwrite -dNOPAUSE -dBATCH -dSAFER '
-           '-sOutputFile="$TARGET" -dAutoRotatePages=/None '
-           '-dPDFSETTINGS=/ebook -dCompatibilityLevel=1.4 $SOURCES'
-)
-env.Depends(vol_II_pdf, volume_II_csv_file)
+for volume_label, csv_file, node_dict in (
+    ('I', 'volume_I.csv', pdf_I_nodes),
+    ('II', 'volume_II.csv', pdf_II_nodes),
+):
+    ordered_nodes = get_ordered_nodes(csv_file, node_dict)
+    if not ordered_nodes:
+        continue
+    vol_pdf = env.MergePDF(
+        target=f'{export_dir}/atlas_antarktiki_{volume_label}_complete.pdf',
+        source=ordered_nodes,
+    )
+    env.Depends(vol_pdf, csv_file)
+    compiled_pdfs.append(vol_pdf)
+    print(f"Configured compiled PDF for Volume {volume_label} "
+          f"({len(ordered_nodes)} pages from {csv_file})")
 
 
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
 
-def get_target_crs(crs_value, default_crs=3031):
+def get_target_crs(crs_value, default_crs=DEFAULT_CRS):
     """
     Extract and validate EPSG code from Excel cell.
     Returns integer EPSG code or default.
     """
-    if pd.isna(crs_value):
+    if crs_value is None or pd.isna(crs_value):
         return default_crs
 
     crs_str = str(crs_value).strip()
 
-    if crs_str in ('', '-', 'NA', 'N/A', 'None', 'nan'):
+    if crs_str in ('', '-', 'NA', 'N/A', 'None', 'nan', '<NA>'):
         return default_crs
 
     try:
-        return int(crs_str)
-    except ValueError:
+        return int(float(crs_str))
+    except (TypeError, ValueError):
+        print(f"WARNING: Unrecognised 'Target crs' value {crs_value!r} "
+              f"— falling back to EPSG:{default_crs}")
         return default_crs
+
+
+# Characters that NFKD cannot decompose into ASCII on their own.
+_ASCII_FOLD_MAP = {
+    'ø': 'o', 'Ø': 'O', 'æ': 'ae', 'Æ': 'AE', 'å': 'a', 'Å': 'A',
+    'ð': 'd', 'Ð': 'D', 'þ': 'th', 'Þ': 'Th', 'ß': 'ss', 'ł': 'l', 'Ł': 'L',
+    'đ': 'd', 'Đ': 'D', 'ı': 'i', 'œ': 'oe', 'Œ': 'OE',
+    'δ': 'delta', 'Δ': 'delta', 'α': 'alpha', 'β': 'beta', 'γ': 'gamma',
+    'μ': 'mu', 'σ': 'sigma', 'ρ': 'rho', 'λ': 'lambda', 'ω': 'omega',
+    '°': 'deg', '–': '-', '—': '-', '’': '', '‘': '', '“': '', '”': '',
+}
+
+
+def ascii_fold(text):
+    """
+    Reduce a string to plain ASCII. Classic BibTeX (as opposed to biber)
+    cannot handle non-ASCII citation keys, and titles such as
+    'Lützow-Holm', 'Sørsdal' and 'Magnetic anomalies δTa' would otherwise
+    leak non-ASCII characters into the keys.
+    """
+    text = ''.join(_ASCII_FOLD_MAP.get(ch, ch) for ch in str(text))
+    text = unicodedata.normalize('NFKD', text)
+    text = ''.join(ch for ch in text if not unicodedata.combining(ch))
+    return text.encode('ascii', 'ignore').decode('ascii')
 
 
 def sanitise_key(text):
     """
     Convert a string into a safe BibTeX citation key fragment.
-    Keeps ASCII alphanumerics and underscores, collapses whitespace to '_'.
+    ASCII-folds first, then keeps alphanumerics and underscores and
+    collapses whitespace to '_'.
     """
-    text = re.sub(r'[^\w\s]', '', str(text))
-    text = re.sub(r'\s+', '_', text.strip())
-    return text.lower()
+    text = ascii_fold(text)
+    text = re.sub(r'[^A-Za-z0-9\s_]', '', text)
+    text = re.sub(r'[\s_]+', '_', text.strip())
+    return text.strip('_').lower()
 
 
 def safe_field(value):
     """Return field value as a cleaned string, or empty string if NaN/missing."""
-    if pd.isna(value):
+    if value is None:
         return ''
-    return str(value).strip()
+    try:
+        if pd.isna(value):
+            return ''
+    except (TypeError, ValueError):
+        pass
+    text = str(value).strip()
+    if text in ('nan', '<NA>', 'None'):
+        return ''
+    return text
 
 
 def escape_bibtex(text):
-    """Escape special BibTeX characters."""
-    text = text.replace('&', r'\&')
-    text = text.replace('%', r'\%')
-    text = text.replace('#', r'\#')
-    text = text.replace('_', r'\_')
+    """Escape TeX special characters in a field value."""
+    text = str(text)
+    text = text.replace('\\', r'\textbackslash{}')
+    for ch in ('&', '%', '#', '_', '$', '{', '}'):
+        text = text.replace(ch, '\\' + ch)
+    text = text.replace('~', r'\textasciitilde{}')
+    text = text.replace('^', r'\textasciicircum{}')
     return text
 
 
@@ -222,16 +408,22 @@ def escape_bibtex(text):
 # BIBTEX GENERATION FOR INDIVIDUAL MAP PLATES
 # ============================================================================
 
+# A cartographic ratio, optionally with a unit suffix such as
+# '1:30 miles/inch'. Content-type words ('photo', 'diagram', 'table') do
+# not match.
+_SCALE_RE = re.compile(r'^\s*1\s*:\s*[\d,\.\s]+([A-Za-z][A-Za-z\s/\.]*)?$')
+
+
 def is_map_scale(scale_str):
     """
-    Return True if scale_str looks like a cartographic ratio (e.g. '1:80,000,000').
+    Return True if scale_str looks like a cartographic ratio
+    (e.g. '1:80,000,000' or '1:30 miles/inch').
     Returns False for content-type words like 'photo', 'diagram', 'table'.
     """
-    import re as _re
-    return bool(_re.match(r'^\s*1\s*:\s*[\d,\.\s]+$', scale_str))
+    return bool(_SCALE_RE.match(str(scale_str)))
 
 
-def generate_bibtex_entry(row, volume=1):
+def generate_bibtex_entry(row, volume=ATLAS_VOLUME):
     """
     Generate a BibTeX @incollection entry for any row in the atlas spreadsheet.
 
@@ -250,12 +442,15 @@ def generate_bibtex_entry(row, volume=1):
     map_subidx = safe_field(row.get('Map Subindex', ''))
     title = safe_field(row.get('Title', ''))
 
-    plate_str = plate.replace(' ', '').zfill(3) if plate else '000'
-    idx_str = f"_{map_idx}" if map_idx else ''
-    subidx_str = map_subidx if map_subidx else ''
+    plate_str = sanitise_key(plate).zfill(3) if plate else '000'
+    idx_str = f"_{sanitise_key(map_idx)}" if map_idx else ''
+    # Map Subindex values such as '(Ye)' would put parentheses in the key.
+    subidx_str = sanitise_key(map_subidx) if map_subidx else ''
     title_fragment = sanitise_key(title)[:30] if title else 'untitled'
 
-    cite_key = f"atlas_{('I' if volume == 1 else 'II')}_{plate_str}{idx_str}{subidx_str}_{title_fragment}"
+    volume_label = 'I' if int(volume) == 1 else 'II'
+    cite_key = f"atlas_{volume_label}_{plate_str}{idx_str}{subidx_str}_{title_fragment}"
+    cite_key = re.sub(r'_+', '_', cite_key).strip('_')
 
     # Title: combine Title and Sub title
     entry_title = escape_bibtex(title) if title else 'Untitled'
@@ -272,7 +467,7 @@ def generate_bibtex_entry(row, volume=1):
         content_type = 'map'
         scale_note = f"Scale {escape_bibtex(scale)}"
     elif scale:
-        content_type = scale.lower().strip()
+        content_type = escape_bibtex(scale.lower().strip())
         scale_note = ''
     else:
         content_type = ''
@@ -292,11 +487,11 @@ def generate_bibtex_entry(row, volume=1):
 
     plate_ref = ''
     if plate:
-        plate_ref = f"Plate {plate}"
+        plate_ref = f"Plate {escape_bibtex(plate)}"
         if map_idx:
-            plate_ref += f", Map {map_idx}"
+            plate_ref += f", Map {escape_bibtex(map_idx)}"
         if map_subidx:
-            plate_ref += f"{map_subidx}"
+            plate_ref += f"{escape_bibtex(map_subidx)}"
 
     lines = []
     lines.append(f"@incollection{{{cite_key},")
@@ -310,7 +505,7 @@ def generate_bibtex_entry(row, volume=1):
     if editor:
         lines.append(f"  editor       = {{{escape_bibtex(editor)}}},")
 
-    lines.append(f"  volume       = {{{volume}}},")
+    lines.append(f"  volume       = {{{int(volume)}}},")
     lines.append(f"  publisher    = {{Glavnoye upravleniye geodezii i kartografii pri Sovete Ministrov SSSR}},")
     lines.append(f"  address      = {{Moscow}},")
     lines.append(f"  year         = {{1966}},")
@@ -369,7 +564,7 @@ def bibtex_builder(target, source, env):
     SCons builder that generates a .bib file for a map plate.
 
     target[0]: .bib file (output)
-    source[0]: atlas_master.xlsx (input dependency)
+    source[0]: a Value node holding the rendered entry
     env: must contain BIB_ENTRY (the pre-rendered BibTeX string)
     """
     bib_path = str(target[0])
@@ -384,7 +579,7 @@ def bibtex_builder(target, source, env):
         return 1
 
 
-bibtex_action = Action(bibtex_builder, "Generating BibTeX $TARGET")
+bibtex_action = Action(bibtex_builder, "Generating BibTeX $TARGET", varlist=['BIB_ENTRY'])
 bibtex_builder_obj = Builder(action=bibtex_action)
 env.Append(BUILDERS={'BibTeX': bibtex_builder_obj})
 
@@ -393,9 +588,247 @@ env.Append(BUILDERS={'BibTeX': bibtex_builder_obj})
 # GEOREFERENCING FUNCTION
 # ============================================================================
 
-def georeference_map(source_raster, target_raster, tie_points, log_file, target_crs=3031):
+# Layer names to prefer inside a multi-layer GPKG, and layers that are never
+# tie points (QGIS writes 'layer_styles' alongside the data).
+TIE_POINT_LAYERS = ('tie_points', 'tiepoints', 'tie_point', 'points', 'gcps')
+NON_DATA_LAYERS = ('layer_styles', 'qgis_projects', 'gpkg_metadata')
+
+
+def list_gpkg_layers(path):
+    """Return the layer names in a vector file, or [] if they can't be listed."""
+    try:
+        import pyogrio
+        return [str(row[0]) for row in pyogrio.list_layers(path)]
+    except Exception:
+        pass
+    try:
+        return [str(n) for n in gpd.list_layers(path)['name']]
+    except Exception:
+        return []
+
+
+def pick_tie_point_layer(path):
+    """
+    Choose which layer holds the tie points.
+
+    QGIS-authored GPKGs usually contain a 'layer_styles' table next to the
+    data, which makes an unqualified read emit a 'More than one layer found'
+    warning and rely on layer order. Returns (layer_name_or_None, notes).
+    """
+    layers = list_gpkg_layers(path)
+    if len(layers) <= 1:
+        return None, []
+
+    for preferred in TIE_POINT_LAYERS:
+        for layer in layers:
+            if layer.lower() == preferred:
+                return layer, []
+
+    candidates = [l for l in layers if l.lower() not in NON_DATA_LAYERS]
+    if len(candidates) == 1:
+        return candidates[0], [f"NOTE: Using layer '{candidates[0]}' of {layers}"]
+    if candidates:
+        return candidates[0], [
+            f"WARNING: {Path(path).name} has several candidate layers {candidates}; "
+            f"using '{candidates[0]}'. Rename the tie point layer to 'tie_points' "
+            f"to make this unambiguous."
+        ]
+    return None, [f"WARNING: No obvious tie point layer among {layers}"]
+
+
+def load_tie_points(tie_points):
+    """
+    Read a tie point layer and return it in EPSG:4326.
+
+    Requires point geometry (the map's current position) plus 'lon'/'lat'
+    columns (the intended position). Raises ValueError on anything missing,
+    so a malformed layer fails loudly instead of producing a bad transform.
+    """
+    layer, layer_notes = pick_tie_point_layer(tie_points)
+    if layer is not None:
+        gdf = gpd.read_file(tie_points, layer=layer)
+    else:
+        gdf = gpd.read_file(tie_points)
+
+    if gdf.empty:
+        raise ValueError(f"{tie_points} contains no tie points")
+
+    missing = [c for c in ('lon', 'lat') if c not in gdf.columns]
+    if missing:
+        raise ValueError(
+            f"{tie_points} is missing required column(s) {missing} "
+            f"(found {list(gdf.columns)})"
+        )
+
+    notes = list(layer_notes)
+    wgs84 = CRS.from_epsg(4326)
+    if gdf.crs is None:
+        notes.append(f"WARNING: {tie_points} has no CRS — assuming EPSG:4326")
+        gdf = gdf.set_crs(wgs84)
+    elif not CRS.from_user_input(gdf.crs).equals(wgs84):
+        notes.append(f"NOTE: Reprojected tie points from {gdf.crs.to_string()} to EPSG:4326")
+        gdf = gdf.to_crs(wgs84)
+
+    if not (gdf.geometry.geom_type == 'Point').all():
+        raise ValueError(f"{tie_points} contains non-point geometry")
+
+    if gdf[['lon', 'lat']].isna().any().any():
+        raise ValueError(f"{tie_points} has empty lon/lat values")
+
+    return gdf, notes
+
+
+def parse_scale_denominator(scale_str):
+    """
+    Return the denominator of a cartographic ratio, or None.
+    '1:40,000,000' -> 40000000; 'Photo' / '1:30 miles/inch' -> None.
+    """
+    text = str(scale_str or '').strip()
+    m = re.match(r'^\s*1\s*:\s*([\d,\.\s]+)\s*$', text)
+    if not m:
+        return None
+    digits = re.sub(r'[,\s]', '', m.group(1)).rstrip('.')
+    try:
+        value = float(digits)
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
+def fit_similarity(gcp_rows, flip=True):
+    """
+    Fit a 4-parameter conformal transform (uniform scale + rotation +
+    translation) from 2 or more points. Exact for 2 points, least squares
+    beyond that.
+
+    flip=True uses the mirrored form appropriate for row-down image
+    coordinates (north-up rasters, where the affine 'e' term is negative):
+        x = a*col + b*row + c
+        y = b*col - a*row + f
+    """
+    A = []
+    b_vec = []
+    sign = -1.0 if flip else 1.0
+    for res in gcp_rows:
+        col, row_ = res['pix_col'], res['pix_row']
+        A.append([col, row_, 1.0, 0.0])
+        b_vec.append(res['tgt_x'])
+        A.append([sign * row_, col, 0.0, 1.0])
+        b_vec.append(res['tgt_y'])
+
+    A = np.asarray(A, dtype=float)
+    b_vec = np.asarray(b_vec, dtype=float)
+
+    params, _res, rank, _sv = np.linalg.lstsq(A, b_vec, rcond=None)
+
+    # Rank-deficient means the points do not constrain all 4 parameters —
+    # typically two tie points digitised at the same pixel. lstsq would
+    # happily return a minimum-norm answer, so reject it explicitly.
+    if rank < 4:
+        raise ValueError(
+            f"Similarity fit is degenerate (rank {rank} of 4) — "
+            f"tie points are coincident or too close together"
+        )
+
+    a, b, c, f = (float(p) for p in params)
+
+    if not np.isfinite([a, b, c, f]).all() or (a == 0.0 and b == 0.0):
+        raise ValueError("Similarity fit is degenerate (no scale recovered)")
+
+    return Affine(a, b, c, b, sign * a, f)
+
+
+def fit_translation(gcp_rows, src_transform):
+    """
+    Fit translation only, keeping the source raster's scale and rotation.
+    Usable with a single tie point.
+    """
+    a, b, d, e = (src_transform.a, src_transform.b,
+                  src_transform.d, src_transform.e)
+    if not any((a, b, d, e)):
+        raise ValueError("Source raster has no usable scale/rotation to preserve")
+
+    dx = np.mean([res['tgt_x'] - (a * res['pix_col'] + b * res['pix_row'])
+                  for res in gcp_rows])
+    dy = np.mean([res['tgt_y'] - (d * res['pix_col'] + e * res['pix_row'])
+                  for res in gcp_rows])
+    return Affine(a, b, float(dx), d, e, float(dy))
+
+
+def fit_transform(gcp_rows, gcps, src_transform):
+    """
+    Choose and fit the best transform the tie points can support.
+
+    >=3 points : affine (6 parameters, least squares via from_gcps)
+     2 points  : conformal similarity (4 parameters)
+     1 point   : translation only (2 parameters)
+
+    Returns (transform, description, n_parameters).
+    """
+    n = len(gcp_rows)
+
+    if n >= 3:
+        try:
+            return (from_gcps(gcps),
+                    'Affine (1st-order polynomial, 6 parameters)', 6)
+        except Exception as e:
+            # Collinear or otherwise degenerate point configuration.
+            print(f"WARNING: Affine fit failed ({e}); falling back to similarity")
+            return (fit_similarity(gcp_rows, flip=(src_transform.e < 0)),
+                    'Similarity (conformal, 4 parameters) — affine fit degenerate', 4)
+
+    if n == 2:
+        return (fit_similarity(gcp_rows, flip=(src_transform.e < 0)),
+                'Similarity (conformal: scale + rotation + translation, '
+                '4 parameters) — only 2 tie points available', 4)
+
+    return (fit_translation(gcp_rows, src_transform),
+            'Translation only (2 parameters, source scale and rotation kept) '
+            '— only 1 tie point available', 2)
+
+
+def assess_quality(rmse_m, scale_denominator):
+    """
+    Grade the fit. When the map scale is known, judge the residual as a
+    distance on the printed sheet: 0.5 mm is the conventional plotting
+    accuracy, so a fixed metre threshold is meaningless across plates
+    ranging from 1:2,000 to 1:180,000,000.
+    """
+    if scale_denominator:
+        rmse_mm = rmse_m / scale_denominator * 1000.0
+        if rmse_mm < 0.25:
+            grade = 'EXCELLENT'
+        elif rmse_mm < 0.5:
+            grade = 'GOOD'
+        elif rmse_mm < 1.0:
+            grade = 'ACCEPTABLE'
+        else:
+            grade = 'POOR'
+        detail = (f"{grade} (RMSE {rmse_m:.0f} m = {rmse_mm:.2f} mm "
+                  f"at 1:{scale_denominator:,.0f})")
+        return grade, rmse_mm, detail
+
+    if rmse_m < 100:
+        grade = 'EXCELLENT'
+    elif rmse_m < 500:
+        grade = 'GOOD'
+    elif rmse_m < 1000:
+        grade = 'ACCEPTABLE'
+    else:
+        grade = 'POOR'
+    return grade, None, f"{grade} (RMSE: {rmse_m:.2f} m; map scale unknown)"
+
+
+def georeference_map(source_raster, target_raster, tie_points, log_file,
+                     target_crs=DEFAULT_CRS, source_crs=SOURCE_CRS,
+                     map_scale=None):
     """
     Re-georeferences from point vector using affine (1st-order polynomial) fit.
+
+    source_crs describes the CRS the raw raster's existing transform is in and
+    is used only to turn tie point geometries into pixel coordinates.
+    target_crs is the CRS written to the output raster.
+
     Generates a detailed log file with transformation statistics.
     Returns the path to the log file.
     """
@@ -410,21 +843,45 @@ def georeference_map(source_raster, target_raster, tie_points, log_file, target_
     log_lines.append(f"Tie Points: {tie_points}")
     log_lines.append("")
 
-    custom_crs = CRS.from_epsg(target_crs)
-    log_lines.append(f"Target CRS: {custom_crs}")
-    print(f"Using CRS: {custom_crs}")
+    source_crs_obj = CRS.from_epsg(int(source_crs))
+    custom_crs = CRS.from_epsg(int(target_crs))
+    log_lines.append(f"Source CRS (pixel lookup): EPSG:{int(source_crs)} — {source_crs_obj.name}")
+    log_lines.append(f"Target CRS (output):       EPSG:{int(target_crs)} — {custom_crs.name}")
+    print(f"Using source CRS EPSG:{int(source_crs)} → target CRS EPSG:{int(target_crs)}")
 
-    gdf = gpd.read_file(tie_points)
+    gdf, tp_notes = load_tie_points(tie_points)
+    for note in tp_notes:
+        log_lines.append(note)
+        print(note)
     log_lines.append(f"Number of tie points: {len(gdf)}")
     print(f"Loaded {len(gdf)} tie points from {tie_points}")
 
     with rasterio.open(source_raster) as src:
-        data = src.read()
         log_lines.append(f"Source dimensions: {src.width} x {src.height} pixels")
         log_lines.append(f"Source bands: {src.count}")
+        log_lines.append(f"Source declared CRS: {src.crs.to_string() if src.crs else 'none'}")
         print(f"Source raster: {src.width} x {src.height} pixels")
 
-        transformer = pyproj.Transformer.from_crs("EPSG:4326", custom_crs, always_xy=True)
+        # The raw rasters are expected to carry a 3031 transform. If the file
+        # says otherwise, the pixel lookup below is likely wrong — say so
+        # loudly rather than silently emitting a bad transform.
+        if src.crs is None:
+            msg = (f"WARNING: {Path(source_raster).name} declares no CRS; "
+                   f"assuming its transform is EPSG:{int(source_crs)}")
+            log_lines.append(msg)
+            print(msg)
+        elif not CRS.from_user_input(src.crs).equals(source_crs_obj):
+            msg = (f"WARNING: {Path(source_raster).name} declares "
+                   f"{src.crs.to_string()} but pixel lookup assumes "
+                   f"EPSG:{int(source_crs)}. Check SOURCE_CRS — the fitted "
+                   f"transform may be invalid.")
+            log_lines.append(msg)
+            print(msg)
+
+        # Tie point geometry → source pixel coordinates (in source CRS)
+        to_source = pyproj.Transformer.from_crs("EPSG:4326", source_crs_obj, always_xy=True)
+        # Tie point lon/lat → intended map coordinates (in target CRS)
+        to_target = pyproj.Transformer.from_crs("EPSG:4326", custom_crs, always_xy=True)
 
         gcps = []
         residuals = []
@@ -435,25 +892,25 @@ def georeference_map(source_raster, target_raster, tie_points, log_file, target_
         log_lines.append("-" * 80)
         log_lines.append(
             f"{'ID':<5} {'Pixel X':<10} {'Pixel Y':<10} "
-            f"{'Map X':<12} {'Map Y':<12} {'Target X':<12} {'Target Y':<12}"
+            f"{'Src X':<12} {'Src Y':<12} {'Target X':<12} {'Target Y':<12}"
         )
         log_lines.append("-" * 80)
 
-        for idx, row in gdf.iterrows():
+        for point_no, (idx, row) in enumerate(gdf.iterrows(), start=1):
             curr_lon, curr_lat = row.geometry.x, row.geometry.y
-            curr_x, curr_y = transformer.transform(curr_lon, curr_lat)
+            curr_x, curr_y = to_source.transform(curr_lon, curr_lat)
 
             pix_col, pix_row = ~src.transform * (curr_x, curr_y)
 
-            tgt_lon, tgt_lat = row["lon"], row["lat"]
-            tgt_x, tgt_y = transformer.transform(tgt_lon, tgt_lat)
+            tgt_lon, tgt_lat = float(row["lon"]), float(row["lat"])
+            tgt_x, tgt_y = to_target.transform(tgt_lon, tgt_lat)
 
             gcps.append(
                 GroundControlPoint(row=pix_row, col=pix_col, x=tgt_x, y=tgt_y, z=0)
             )
 
             residuals.append({
-                'idx': idx,
+                'id': point_no,
                 'pix_col': pix_col,
                 'pix_row': pix_row,
                 'curr_x': curr_x,
@@ -463,11 +920,19 @@ def georeference_map(source_raster, target_raster, tie_points, log_file, target_
             })
 
             log_lines.append(
-                f"{idx+1:<5} {pix_col:<10.1f} {pix_row:<10.1f} "
+                f"{point_no:<5} {pix_col:<10.1f} {pix_row:<10.1f} "
                 f"{curr_x:<12.0f} {curr_y:<12.0f} {tgt_x:<12.0f} {tgt_y:<12.0f}"
             )
 
-        new_transform = from_gcps(gcps)
+        # Fit the richest transform the point count supports rather than
+        # failing outright: affine needs 3 points, similarity 2, translation 1.
+        new_transform, transform_desc, n_params = fit_transform(
+            residuals, gcps, src.transform)
+        if n_params < 6:
+            msg = (f"WARNING: {Path(source_raster).name}: {len(gcps)} tie point(s) "
+                   f"— using {transform_desc.split(' —')[0]} instead of a full affine")
+            log_lines.append(msg)
+            print(msg)
 
         log_lines.append("")
         log_lines.append("-" * 80)
@@ -491,7 +956,7 @@ def georeference_map(source_raster, target_raster, tie_points, log_file, target_
             dx_list.append(dx)
             dy_list.append(dy)
 
-            log_lines.append(f"{res['idx']+1:<5} {dx:<12.2f} {dy:<12.2f} {residual:<15.2f}")
+            log_lines.append(f"{res['id']:<5} {dx:<12.2f} {dy:<12.2f} {residual:<15.2f}")
 
         residual_errors = np.array(residual_errors)
         dx_array = np.array(dx_list)
@@ -505,13 +970,25 @@ def georeference_map(source_raster, target_raster, tie_points, log_file, target_
         min_error = np.min(residual_errors)
         std_error = np.std(residual_errors)
 
+        # 2 observations per point, minus the fitted parameters.
+        degrees_of_freedom = max(0, 2 * len(gcps) - n_params)
+
+        # How much of the error is one bad point? Cheap outlier diagnostic.
+        worst_idx = int(np.argmax(residual_errors))
+        if len(residual_errors) > 1:
+            without_worst = np.delete(residual_errors, worst_idx)
+            rmse_without_worst = float(np.sqrt(np.mean(without_worst**2)))
+        else:
+            rmse_without_worst = None
+
         log_lines.append("-" * 80)
         log_lines.append("")
         log_lines.append("TRANSFORMATION STATISTICS")
         log_lines.append("-" * 80)
-        log_lines.append(f"Transformation type: Affine (1st-order polynomial, 6 parameters)")
+        log_lines.append(f"Transformation type: {transform_desc}")
         log_lines.append(f"Number of GCPs used: {len(gcps)}")
-        log_lines.append(f"Degrees of freedom:  {max(0, len(gcps) - 3)}")
+        log_lines.append(f"Observations:        {2 * len(gcps)} (2 per GCP)")
+        log_lines.append(f"Degrees of freedom:  {degrees_of_freedom}")
         log_lines.append("")
         log_lines.append("Residual Errors:")
         log_lines.append(f"  Mean error:     {mean_error:10.2f} m")
@@ -519,8 +996,22 @@ def georeference_map(source_raster, target_raster, tie_points, log_file, target_
         log_lines.append(f"  RMSE X:         {rmse_x:10.2f} m")
         log_lines.append(f"  RMSE Y:         {rmse_y:10.2f} m")
         log_lines.append(f"  Std deviation:  {std_error:10.2f} m")
-        log_lines.append(f"  Maximum error:  {max_error:10.2f} m")
+        log_lines.append(f"  Maximum error:  {max_error:10.2f} m  (point {worst_idx + 1})")
         log_lines.append(f"  Minimum error:  {min_error:10.2f} m")
+        if rmse_without_worst is not None:
+            log_lines.append(f"  RMSE excl. worst point: {rmse_without_worst:10.2f} m "
+                             f"({100.0 * (1 - rmse_without_worst / rmse):.0f}% lower)")
+
+        scale_denominator = parse_scale_denominator(map_scale)
+        if scale_denominator:
+            log_lines.append("")
+            log_lines.append(f"Map scale: 1:{scale_denominator:,.0f}")
+            log_lines.append(f"  RMSE on the sheet: {rmse / scale_denominator * 1000.0:8.2f} mm")
+            log_lines.append(f"  Max error on sheet:{max_error / scale_denominator * 1000.0:8.2f} mm")
+            log_lines.append("  (0.5 mm is the conventional plotting accuracy)")
+        elif map_scale:
+            log_lines.append("")
+            log_lines.append(f"Map scale: {map_scale} (not a parsable ratio)")
 
         log_lines.append("")
         log_lines.append("Transformation Matrix:")
@@ -544,37 +1035,57 @@ def georeference_map(source_raster, target_raster, tie_points, log_file, target_
         log_lines.append("")
         log_lines.append("QUALITY ASSESSMENT")
         log_lines.append("-" * 80)
-        if rmse < 100:
-            quality = "EXCELLENT"
-        elif rmse < 500:
-            quality = "GOOD"
-        elif rmse < 1000:
-            quality = "ACCEPTABLE"
-        else:
-            quality = "POOR"
-        log_lines.append(f"Overall quality: {quality} (RMSE: {rmse:.2f} m)")
+        quality, rmse_mm, quality_detail = assess_quality(rmse, scale_denominator)
+        log_lines.append(f"Overall quality: {quality_detail}")
 
         if len(gcps) < 4:
-            log_lines.append("WARNING: Less than 4 GCPs used. Consider adding more points.")
+            log_lines.append(f"WARNING: Only {len(gcps)} GCP(s) used, so the fit has "
+                             f"{degrees_of_freedom} degree(s) of freedom and the "
+                             f"residuals below understate the true error. "
+                             f"Add more points.")
 
-        if max_error > 3 * mean_error:
-            log_lines.append(f"WARNING: Point {np.argmax(residual_errors)+1} has unusually high residual.")
-            log_lines.append("         Consider checking this control point.")
+        if mean_error > 0 and max_error > 3 * mean_error:
+            log_lines.append(f"WARNING: Point {worst_idx + 1} has an unusually high residual "
+                             f"({max_error:.0f} m vs {mean_error:.0f} m mean).")
+            if rmse_without_worst is not None and rmse_without_worst < 0.6 * rmse:
+                log_lines.append(f"         Dropping it would reduce RMSE to "
+                                 f"{rmse_without_worst:.0f} m. Check that point's "
+                                 f"lon/lat against its plotted position.")
+            else:
+                log_lines.append("         Consider checking this control point.")
 
         log_lines.append("")
         log_lines.append("=" * 80)
 
-        with open(log_file, 'w') as f:
+        os.makedirs(str(Path(log_file).parent), exist_ok=True)
+        with open(log_file, 'w', encoding='utf-8') as f:
             f.write('\n'.join(log_lines))
 
         print(f"\nLog file written to: {log_file}")
-        print(f"RMSE: {rmse:.2f} m")
+        print(f"RMSE: {rmse:.2f} m — {quality_detail}")
+        if quality == 'POOR':
+            print(f"WARNING: {Path(source_raster).name} fit graded POOR; "
+                  f"worst point is {worst_idx + 1} ({max_error:.0f} m)")
 
         profile = src.profile.copy()
-        profile.update(crs=custom_crs, transform=new_transform)
+        profile.update(crs=custom_crs, transform=new_transform, BIGTIFF='IF_SAFER')
+        profile.pop('gcps', None)
 
-        with rasterio.open(target_raster, "w", **profile) as dst:
-            dst.write(data)
+        # Write to a temporary file and rename, so an interrupted or failed
+        # run never leaves a truncated raster that looks up to date. Bands are
+        # copied one at a time to keep peak memory to a single band.
+        tmp_raster = f"{target_raster}.tmp.tif"
+        os.makedirs(str(Path(target_raster).parent), exist_ok=True)
+        try:
+            with rasterio.open(tmp_raster, "w", **profile) as dst:
+                for band in range(1, src.count + 1):
+                    dst.write(src.read(band), band)
+                if src.descriptions and any(src.descriptions):
+                    dst.descriptions = src.descriptions
+            os.replace(tmp_raster, target_raster)
+        finally:
+            if os.path.exists(tmp_raster):
+                os.remove(tmp_raster)
 
     print(f"Georeferenced raster saved to {target_raster}")
     return str(log_file)
@@ -584,16 +1095,14 @@ def georeference_map(source_raster, target_raster, tie_points, log_file, target_
 # SCons BUILDER FOR GEOREFERENCING
 # ============================================================================
 
-DEFAULT_CRS = 3031
-
 def georef_builder(target, source, env):
     """
     SCons builder that calls georeference_map.
 
     target[0]: log file (output)
-    target[1]: georeferenced raster in maps/ (output)
+    target[1]: georeferenced raster (output)
     source[0]: GPKG tie points file (input)
-    source[1]: ungeoreferenced TIFF in _georeferencing/ (input)
+    source[1]: ungeoreferenced TIFF in the per-map subdirectory (input)
     """
     tie_points = str(source[0])
     source_raster = str(source[1])
@@ -601,19 +1110,142 @@ def georef_builder(target, source, env):
     target_raster = str(target[1])
 
     crs = env.get('TARGET_CRS', DEFAULT_CRS)
+    src_crs = env.get('SOURCE_CRS', SOURCE_CRS)
+    map_scale = env.get('MAP_SCALE')
 
     try:
-        georeference_map(source_raster, target_raster, tie_points, target_log, target_crs=crs)
+        georeference_map(source_raster, target_raster, tie_points, target_log,
+                         target_crs=crs, source_crs=src_crs, map_scale=map_scale)
         print(f"OK: Georeferenced {Path(source_raster).name}")
         return 0
     except Exception as e:
         print(f"ERROR: Georeferencing {Path(source_raster).name}: {e}")
+        print(f"       Run 'scons -k' to build the remaining maps despite this failure.")
         return 1
 
 
-georef_action = Action(georef_builder, "Georeferencing $SOURCE")
+georef_action = Action(georef_builder, "Georeferencing $SOURCE",
+                       varlist=['TARGET_CRS', 'SOURCE_CRS', 'MAP_SCALE'])
 georef_builder_obj = Builder(action=georef_action)
 env.Append(BUILDERS={'Georef': georef_builder_obj})
+
+
+# ============================================================================
+# SUBSECTION ZIP ARCHIVES
+# ============================================================================
+# One zip per subsection directory, e.g.
+#   atlas/3_regional/12_continent_and_islands/43_..._p_136-141/
+# is archived to
+#   atlas/3_regional/12_continent_and_islands/43_..._p_136-141.zip
+# The whole directory tree is included recursively (georeferenced TIFFs, raw
+# TIFFs, tie points, logs and bib files).
+# ============================================================================
+
+ZIP_EXCLUDE_SUFFIXES = ('.zip', '.tmp', '.tmp.tif')
+ZIP_EXCLUDE_NAMES = ('.DS_Store', 'Thumbs.db')
+
+# TIFF (LZW), JPEG and PDF payloads are already compressed; deflating them
+# again costs a lot of CPU for almost no size saving on multi-GB archives.
+ZIP_STORE_SUFFIXES = ('.tif', '.tiff', '.jpg', '.jpeg', '.png', '.pdf', '.gpkg-wal')
+
+# 'scons zip_raw=0' leaves the pre-georeferencing source rasters out of the
+# archives. They live in the per-map subdirectory beside the tie points and
+# are usually a near-duplicate of the georeferenced TIFF one level up.
+ZIP_INCLUDE_RAW = ARGUMENTS.get('zip_raw', '1') not in ('0', 'no', 'false', 'False')
+
+
+def find_subsection_dir(path):
+    """
+    Return the subsection directory for a map path.
+
+    Paths look like
+        <subsection>/maps/<stem>/<stem>.gpkg
+    so the subsection is the parent of the 'maps' directory. Falls back to
+    walking two levels up from the map directory when 'maps' is absent.
+    """
+    parts = Path(path).parts
+    for i in range(len(parts) - 1, -1, -1):
+        if parts[i].lower() == 'maps':
+            if i == 0:
+                return None
+            return Path(*parts[:i])
+    parent = Path(path).parent
+    return parent.parent if parent.parent != Path('.') else None
+
+
+def collect_zip_members(root, include_raw=True, raw_paths=()):
+    """Return sorted (absolute path, archive name) pairs for a directory tree."""
+    root = Path(root)
+    raw_set = {os.path.normpath(str(p)) for p in raw_paths}
+    members = []
+    skipped_raw = 0
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(d for d in dirnames if not d.startswith('.'))
+        for filename in sorted(filenames):
+            if filename in ZIP_EXCLUDE_NAMES or filename.startswith('.'):
+                continue
+            if filename.endswith(ZIP_EXCLUDE_SUFFIXES):
+                continue
+            full = Path(dirpath) / filename
+            if not include_raw and os.path.normpath(str(full)) in raw_set:
+                skipped_raw += 1
+                continue
+            members.append((full, str(Path(root.name) / full.relative_to(root))))
+    members.sort(key=lambda item: item[1])
+    return members, skipped_raw
+
+
+def zip_builder(target, source, env):
+    """
+    SCons builder that zips a subsection directory recursively.
+
+    target[0]: <subsection>.zip
+    source:    the build outputs inside the subsection (dependency only);
+               the archive contents are collected from ZIP_ROOT at build time.
+    env: must contain ZIP_ROOT (directory to archive)
+    """
+    zip_path = str(target[0])
+    root = env.get('ZIP_ROOT')
+
+    if not root or not os.path.isdir(root):
+        print(f"ERROR: Zip source directory not found: {root}")
+        return 1
+
+    members, skipped_raw = collect_zip_members(
+        root, include_raw=ZIP_INCLUDE_RAW, raw_paths=env.get('ZIP_RAW_PATHS', ()))
+    if not members:
+        print(f"WARNING: Nothing to archive in {root} — skipping {zip_path}")
+        return 1
+
+    raw_bytes = sum(f.stat().st_size for f, _ in members)
+    tmp_path = f"{zip_path}.tmp"
+    try:
+        with zipfile.ZipFile(tmp_path, 'w', compression=zipfile.ZIP_DEFLATED,
+                             compresslevel=6, allowZip64=True) as zf:
+            for full, arcname in members:
+                # Store already-compressed payloads instead of deflating them.
+                if full.suffix.lower() in ZIP_STORE_SUFFIXES:
+                    zf.write(full, arcname, compress_type=zipfile.ZIP_STORED)
+                else:
+                    zf.write(full, arcname)
+        os.replace(tmp_path, zip_path)
+    except Exception as e:
+        print(f"ERROR: Writing {zip_path}: {e}")
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        return 1
+
+    size_mb = os.path.getsize(zip_path) / (1024 * 1024)
+    note = f", {skipped_raw} raw scan(s) excluded" if skipped_raw else ''
+    print(f"OK: Archived {len(members)} file(s) ({raw_bytes / (1024 * 1024):.1f} MB) "
+          f"from {root} → {zip_path} ({size_mb:.1f} MB{note})")
+    return 0
+
+
+zip_action = Action(zip_builder, "Archiving subsection $TARGET",
+                    varlist=['ZIP_ROOT', 'ZIP_RAW_PATHS'])
+zip_builder_obj = Builder(action=zip_action)
+env.Append(BUILDERS={'SubsectionZip': zip_builder_obj})
 
 
 # ============================================================================
@@ -622,30 +1254,36 @@ env.Append(BUILDERS={'Georef': georef_builder_obj})
 
 try:
     df = pd.read_excel(atlas_master, dtype={"Target crs": "string"})
+    # Drop the stray index columns that pandas round-trips leave behind.
+    df = df.loc[:, [c for c in df.columns if not str(c).startswith('Unnamed:')]]
     print(f"Loaded {atlas_master} with {len(df)} rows")
 except Exception as e:
     print(f"ERROR: Could not load {atlas_master}: {e}")
     df = pd.DataFrame()
 
-if not df.empty and 'tiepoint_path' in df.columns and 'raw_path' in df.columns:
+build_tasks = []
+georef_nodes = []
+bib_nodes = []
+zip_nodes = []
 
-    build_tasks = []
+if not df.empty and 'tiepoint_path' in df.columns and 'raw_path' in df.columns:
 
     for idx, row in df.iterrows():
         tiepoint_paths = row['tiepoint_path']
         raw_paths = row['raw_path']
 
-        if (pd.isna(tiepoint_paths) or tiepoint_paths == '-'
-                or pd.isna(raw_paths) or raw_paths == '-'):
+        if (pd.isna(tiepoint_paths) or str(tiepoint_paths).strip() in ('', '-')
+                or pd.isna(raw_paths) or str(raw_paths).strip() in ('', '-')):
             continue
 
-        target_crs = get_target_crs(row.get('Target crs', DEFAULT_CRS))
+        target_crs = get_target_crs(row.get('Target crs'))
 
-        tiepoint_list = [p.strip() for p in str(tiepoint_paths).split(',')]
-        raw_list = [p.strip() for p in str(raw_paths).split(',')]
+        tiepoint_list = [p.strip() for p in str(tiepoint_paths).split(',') if p.strip()]
+        raw_list = [p.strip() for p in str(raw_paths).split(',') if p.strip()]
 
         if len(tiepoint_list) != len(raw_list):
-            print(f"WARNING: Row {idx} has mismatched tiepoint/raw path counts")
+            print(f"WARNING: Row {idx} has mismatched tiepoint/raw path counts "
+                  f"({len(tiepoint_list)} vs {len(raw_list)})")
             continue
 
         for tiepoint_path, raw_path in zip(tiepoint_list, raw_list):
@@ -663,7 +1301,6 @@ if not df.empty and 'tiepoint_path' in df.columns and 'raw_path' in df.columns:
             stem = tiepoint_path.stem
 
             # ---------------------------------------------------------------
-            # DIRECTORY RENAMING: use stem name directly (no _georeferencing)
             # The subdirectory for accessory files is named after the map stem
             # and sits alongside the georeferenced TIFF.
             # ---------------------------------------------------------------
@@ -681,6 +1318,9 @@ if not df.empty and 'tiepoint_path' in df.columns and 'raw_path' in df.columns:
                 'map_dir': str(map_dir),
                 'stem': stem,
                 'target_crs': target_crs,
+                'map_scale': safe_field(row.get('Scale', '')),
+                'subsection_dir': find_subsection_dir(tiepoint_path),
+                'row_index': idx,
                 'row': row,
             })
 
@@ -689,43 +1329,112 @@ if not df.empty and 'tiepoint_path' in df.columns and 'raw_path' in df.columns:
     # Register all build targets — deduplicate by target_tiff path to
     # prevent "Two different environments" warnings when the same map
     # appears on multiple Excel rows (e.g. overlapping tiepoint entries).
-    registered_targets = set()
+    registered_targets = {}
+    duplicate_report = {}
+    subsection_deps = {}
+    subsection_raw = {}
+    used_cite_keys = {}
 
     for task in sorted(build_tasks, key=lambda x: x['stem']):
 
         target_key = task['target_tiff']
         if target_key in registered_targets:
-            print(f"INFO: Skipping duplicate target: {task['stem']} (already registered)")
+            rows_seen = duplicate_report.setdefault(
+                task['stem'], {registered_targets[target_key]})
+            rows_seen.add(task['row_index'])
             continue
-        registered_targets.add(target_key)
+        registered_targets[target_key] = task['row_index']
 
         # --- Georeferencing target ---
         task_env = env.Clone()
         task_env['TARGET_CRS'] = task['target_crs']
+        task_env['SOURCE_CRS'] = SOURCE_CRS
+        task_env['MAP_SCALE'] = task['map_scale']
 
         georef_targets = task_env.Georef(
             [task['target_log'], task['target_tiff']],
             [task['tiepoint'], task['raw']]
         )
-        env.Depends(georef_targets, atlas_master)
+        georef_nodes.extend(list(georef_targets))
+
+        # NOTE: deliberately NOT Depends(georef_targets, atlas_master).
+        # A map's output depends on its tie points, its raw scan, and the two
+        # spreadsheet values actually used (Target crs, Scale) — and those two
+        # travel in the action's varlist, so changing either still rebuilds
+        # exactly this map. Depending on the whole workbook meant editing any
+        # single cell anywhere rebuilt all 497 maps.
+        # ('scons --debug=explain' reported: rebuilding ... because
+        # 'atlas_master.xlsx' changed.)
 
         # --- BibTeX generation target ---
         row = task['row']
 
-        # Determine volume from the raw path (heuristic: 'II' in path -> vol 2)
-        volume = 2 if 'II' in task['raw'] else 1
+        # Every plate row in atlas_master.xlsx belongs to Volume I; Volume II
+        # is the text volume. (The old 'II' in raw_path test matched Roman
+        # numeral map indices such as P_7_II.tiff.)
+        cite_key, bib_entry = generate_map_bibtex(row, volume=ATLAS_VOLUME)
 
-        cite_key, bib_entry = generate_map_bibtex(row, volume=volume)
+        # A single spreadsheet row can list several comma-separated maps, which
+        # would otherwise share one cite key. Disambiguate with the map stem.
+        if cite_key in used_cite_keys and used_cite_keys[cite_key] != task['stem']:
+            unique_key = f"{cite_key}_{sanitise_key(task['stem'])}"
+            bib_entry = bib_entry.replace(f"@incollection{{{cite_key},",
+                                          f"@incollection{{{unique_key},", 1)
+            print(f"INFO: Cite key {cite_key} reused by row {task['row_index']} "
+                  f"→ {unique_key} for {task['stem']}")
+            cite_key = unique_key
+        used_cite_keys[cite_key] = task['stem']
 
         bib_path = str(Path(task['map_dir']) / f"{task['stem']}.bib")
 
         bib_env = env.Clone()
         bib_env['BIB_ENTRY'] = bib_entry
 
+        # The source is the rendered entry itself, not the workbook, so a .bib
+        # is rewritten only when that row's own metadata changes.
         bib_target = bib_env.BibTeX(
             target=bib_path,
-            source=atlas_master
+            source=bib_env.Value(bib_entry)
         )
+        bib_nodes.extend(list(bib_target))
+
+        # --- Collect dependencies for the subsection zip ---
+        subsection = task['subsection_dir']
+        if subsection is not None:
+            deps = subsection_deps.setdefault(str(subsection), [])
+            deps.extend(list(georef_targets))
+            deps.extend(list(bib_target))
+            subsection_raw.setdefault(str(subsection), []).append(task['raw'])
+        else:
+            print(f"WARNING: Could not determine subsection directory for {task['stem']} "
+                  f"— it will not be archived")
+
+    if duplicate_report:
+        print(f"\nINFO: {len(duplicate_report)} map(s) appear on more than one row; "
+              f"only the first is built:")
+        for stem, rows in sorted(duplicate_report.items()):
+            print(f"  {stem}: rows {sorted(rows)}")
+
+    # --- One zip archive per subsection directory ---
+    for subsection_str in sorted(subsection_deps):
+        subsection = Path(subsection_str)
+        zip_path = subsection.parent / f"{subsection.name}.zip"
+
+        zip_env = env.Clone()
+        zip_env['ZIP_ROOT'] = subsection_str
+        zip_env['ZIP_RAW_PATHS'] = tuple(sorted(subsection_raw.get(subsection_str, ())))
+
+        # Sources are this subsection's own georef and bib outputs, so an
+        # archive is rewritten only when something inside it actually changed.
+        # No workbook dependency: these are multi-GB targets and a one-cell
+        # edit must not rewrite all 46 of them.
+        zip_node = zip_env.SubsectionZip(
+            target=str(zip_path),
+            source=subsection_deps[subsection_str],
+        )
+        zip_nodes.extend(list(zip_node))
+
+    print(f"Configured {len(zip_nodes)} subsection zip archive(s)")
 
 else:
     print("ERROR: Could not find 'tiepoint_path' and/or 'raw_path' columns in Excel file")
@@ -746,42 +1455,62 @@ def master_bibtex_builder(target, source, env):
     target[0]: atlas/atlas_antarktiki_maps.bib
     source[0]: atlas_master.xlsx
     source[1:]: all individual per-map .bib files (dependency chain)
-    env: carries MASTER_DF (pre-read DataFrame) to avoid re-reading Excel
     """
     master_path = str(target[0])
 
     try:
         df_master = pd.read_excel(str(source[0]), dtype={"Target crs": "string"})
+        df_master = df_master.loc[
+            :, [c for c in df_master.columns if not str(c).startswith('Unnamed:')]
+        ]
     except Exception as e:
         print(f"ERROR: Could not read {source[0]} for master bib: {e}")
         return 1
 
     entries = []
+    seen_keys = {}
+    duplicates = 0
+
     for idx, row in df_master.iterrows():
         title = safe_field(row.get('Title', ''))
         if not title:
             continue
-        raw_path_str = safe_field(row.get('raw_path', ''))
-        volume = 2 if 'II' in raw_path_str else 1
         try:
-            _, bib_entry = generate_bibtex_entry(row, volume=volume)
-            entries.append(bib_entry)
+            cite_key, bib_entry = generate_bibtex_entry(row, volume=ATLAS_VOLUME)
         except Exception as e:
             print(f"WARNING: Row {idx} skipped in master bib: {e}")
+            continue
+
+        # BibTeX silently drops repeated keys, so disambiguate instead.
+        if cite_key in seen_keys:
+            duplicates += 1
+            seen_keys[cite_key] += 1
+            suffix = chr(ord('a') + seen_keys[cite_key] - 1)
+            new_key = f"{cite_key}{suffix}"
+            print(f"WARNING: Duplicate cite key {cite_key} at row {idx} → {new_key}")
+            bib_entry = bib_entry.replace(f"@incollection{{{cite_key},",
+                                          f"@incollection{{{new_key},", 1)
+        else:
+            seen_keys[cite_key] = 1
+
+        entries.append(bib_entry)
 
     content = (
         f"% atlas_antarktiki_maps.bib\n"
         f"% Master bibliography — all atlas entries\n"
         f"% Auto-generated by SConstruct — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-        f"% Entries: {len(entries)} (rows with a Title in {atlas_master})\n\n"
+        f"% Entries: {len(entries)} (rows with a Title in {atlas_master})\n"
+        f"% Duplicate keys disambiguated: {duplicates}\n\n"
         f"{ATLAS_PARENT_BIB}\n"
         + "\n\n".join(entries)
         + "\n"
     )
 
     os.makedirs(str(Path(master_path).parent), exist_ok=True)
-    with open(master_path, 'w', encoding='utf-8') as f:
+    tmp_path = f"{master_path}.tmp"
+    with open(tmp_path, 'w', encoding='utf-8') as f:
         f.write(content)
+    os.replace(tmp_path, master_path)
 
     print(f"OK: Master bib written to {master_path} ({len(entries)} entries)")
     return 0
@@ -791,22 +1520,39 @@ master_bib_action = Action(master_bibtex_builder, "Generating master BibTeX $TAR
 master_bib_builder_obj = Builder(action=master_bib_action)
 env.Append(BUILDERS={'MasterBibTeX': master_bib_builder_obj})
 
-# Collect all individual bib nodes registered during the georef loop
-all_bib_nodes = []
-# Re-scan registered map_dirs for their .bib files as SCons nodes
-for task in (build_tasks if 'build_tasks' in dir() else []):
-    bib_path = str(Path(task['map_dir']) / f"{task['stem']}.bib")
-    node = env.File(bib_path)
-    if node not in all_bib_nodes:
-        all_bib_nodes.append(node)
-
 master_bib_target = Path('atlas') / 'atlas_antarktiki_maps.bib'
 os.makedirs('atlas', exist_ok=True)
 
 master_bib_node = env.MasterBibTeX(
     target=str(master_bib_target),
-    source=[atlas_master] + all_bib_nodes
+    source=[atlas_master] + bib_nodes
 )
-print(f"Configured master bib: {master_bib_target} (depends on {len(all_bib_nodes)} individual bib files)")
+print(f"Configured master bib: {master_bib_target} "
+      f"(depends on {len(bib_nodes)} individual bib files)")
+
+
+# ============================================================================
+# ALIASES
+# ============================================================================
+
+env.Alias('georef', georef_nodes)
+env.Alias('bib', bib_nodes + list(master_bib_node))
+env.Alias('zip', zip_nodes)
+env.Alias('pdf', compiled_pdfs)
+env.Alias('images', image_nodes)
+
+# The subsection archives are multi-GB and are a redistribution artefact
+# rather than an input to anything else, so they are deliberately NOT part of
+# the default build — otherwise every touched tie point rewrites gigabytes.
+# Build them on demand with 'scons zip'.
+Default(georef_nodes + bib_nodes + list(master_bib_node) + image_nodes + compiled_pdfs)
 
 print("\n" + "=" * 80)
+print(f"georef: {len(georef_nodes)} node(s) | bib: {len(bib_nodes) + 1} | "
+      f"images: {len(image_nodes)} | compiled pdf: {len(compiled_pdfs)} | "
+      f"zip: {len(zip_nodes)} (on demand)")
+print("Targets: scons | scons georef | scons bib | scons images | scons pdf")
+print("         scons zip            build the subsection archives")
+print("         scons zip zip_raw=0  archives without the raw source scans")
+print("         scons -k             keep building past a failing map")
+print("=" * 80)
