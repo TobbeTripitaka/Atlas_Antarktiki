@@ -1,14 +1,14 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:33:45
+Date: 2026-09-09 23:29:31
 Source Raster: atlas/3_regional/12_continent_and_islands/47_ellsworth_land_and_antarctic_peninsula_p_172-177/maps/P_174_III/P_174_III.tiff
 Target Raster: atlas/3_regional/12_continent_and_islands/47_ellsworth_land_and_antarctic_peninsula_p_172-177/maps/P_174_III.tiff
 Tie Points: atlas/3_regional/12_continent_and_islands/47_ellsworth_land_and_antarctic_peninsula_p_172-177/maps/P_174_III/P_174_III.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic
 Target CRS (output):       EPSG:3031 — WGS 84 / Antarctic Polar Stereographic
-Number of tie points: 13
+Number of tie points: 6
 Source dimensions: 3565 x 4170 pixels
 Source bands: 3
 Source declared CRS: EPSG:3031
@@ -18,77 +18,63 @@ CONTROL POINTS
 --------------------------------------------------------------------------------
 ID    Pixel X    Pixel Y    Src X        Src Y        Target X     Target Y    
 --------------------------------------------------------------------------------
-1     78.7       379.1      -2860096     2863546      -2553329     2142497     
-2     3503.3     394.4      2888687      2837927      2553329      2142497     
-3     3491.8     3728.4     2869304      -2758760     2553329      -2142497    
-4     -146.9     3340.0     -3238728     -2106642     -2886579     -1666567    
-5     1783.2     2053.8     1147         52347        0            0           
-6     297.5      2046.2     -2492877     65103        -2194494     0           
-7     1796.5     318.4      23551        2965583      0            2194494     
-8     3276.7     2060.6     2508174      41032        2194494      0           
-9     1782.3     3784.8     -285         -2853438     0            -2194494    
-10    1783.9     2922.8     2389         -1406298     0            -1089179    
-11    2530.6     2057.1     1255775      46768        1089179      0           
-12    1042.2     2050.0     -1242710     58770        -1089179     0           
-13    1786.5     1188.4     6667         1505155      0            1089179     
+1     1013.6     3809.5     -1290717     -2894844     -2459342     1592036     
+2     2100.7     3806.7     534183       -2890146     -2457024     1595610     
+3     3190.3     3804.9     2363217      -2887139     -2454702     1599181     
+4     2096.9     1367.8     527793       1203945      -2465021     1600803     
+5     1006.0     1369.1     -1303497     1201689      -2467346     1597218     
+6     3190.1     1365.8     2362842      1207327      -2462691     1604385     
 
 --------------------------------------------------------------------------------
 RESIDUAL ANALYSIS
 --------------------------------------------------------------------------------
 ID    dX (m)       dY (m)       Residual (m)   
 --------------------------------------------------------------------------------
-1     7128.10      -15321.06    16898.07       
-2     -9364.03     -14538.82    17293.42       
-3     -11986.97    15032.29     19226.47       
-4     18039.92     13403.10     22474.03       
-5     -5490.22     -191.54      5493.57        
-6     -19293.39    717.87       19306.74       
-7     6778.99      20427.36     21522.82       
-8     19821.94     41.43        19821.98       
-9     790.08       -15070.82    15091.51       
-10    -601.57      -20065.66    20074.68       
-11    16219.97     -11.56       16219.98       
-12    -17665.75    308.75       17668.45       
-13    -4377.08     15268.66     15883.66       
+1     1.75         1.14         2.08           
+2     -1.12        -3.10        3.30           
+3     -0.62        1.96         2.06           
+4     0.88         -4.05        4.15           
+5     -1.62        2.44         2.93           
+6     0.74         1.61         1.77           
 --------------------------------------------------------------------------------
 
 TRANSFORMATION STATISTICS
 --------------------------------------------------------------------------------
 Transformation type: Affine (1st-order polynomial, 6 parameters)
-Number of GCPs used: 13
-Observations:        26 (2 per GCP)
-Degrees of freedom:  20
+Number of GCPs used: 6
+Observations:        12 (2 per GCP)
+Degrees of freedom:  6
 
 Residual Errors:
-  Mean error:       17459.64 m
-  RMSE (total):     17924.45 m
-  RMSE X:           12539.70 m
-  RMSE Y:           12807.88 m
-  Std deviation:     4055.46 m
-  Maximum error:    22474.03 m  (point 4)
-  Minimum error:     5493.57 m
-  RMSE excl. worst point:   17491.99 m (2% lower)
+  Mean error:           2.71 m
+  RMSE (total):         2.84 m
+  RMSE X:               1.20 m
+  RMSE Y:               2.57 m
+  Std deviation:        0.83 m
+  Maximum error:        4.15 m  (point 4)
+  Minimum error:        1.77 m
+  RMSE excl. worst point:       2.50 m (12% lower)
 
 Map scale: 1:60,000
-  RMSE on the sheet:   298.74 mm
-  Max error on sheet:  374.57 mm
+  RMSE on the sheet:     0.05 mm
+  Max error on sheet:    0.07 mm
   (0.5 mm is the conventional plotting accuracy)
 
 Transformation Matrix:
-  a (scale X):        1486.320050
-  b (rotation):          4.360727
-  c (translation X):     -2664827.47
-  d (rotation):          5.916250
-  e (scale Y):       -1276.341038
-  f (translation Y):      2610628.84
+  a (scale X):           2.137293
+  b (rotation):          3.274520
+  c (translation X):     -2473980.56
+  d (rotation):          3.278064
+  e (scale Y):          -2.133922
+  f (translation Y):      1596844.15
 
 Derived Parameters:
-  Pixel size X:      1486.32 m/pixel
-  Pixel size Y:      1276.34 m/pixel
-  Rotation:           0.1681 degrees
+  Pixel size X:         2.14 m/pixel
+  Pixel size Y:         2.13 m/pixel
+  Rotation:          56.8673 degrees
 
 QUALITY ASSESSMENT
 --------------------------------------------------------------------------------
-Overall quality: POOR (RMSE 17924 m = 298.74 mm at 1:60,000)
+Overall quality: EXCELLENT (RMSE 3 m = 0.05 mm at 1:60,000)
 
 ================================================================================
