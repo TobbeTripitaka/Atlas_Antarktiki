@@ -1,14 +1,14 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:33:58
+Date: 2026-09-11 00:22:31
 Source Raster: atlas/3_regional/12_continent_and_islands/48_oceanic_islands_p_178-180/maps/P_180_XI/P_180_XI.tiff
 Target Raster: atlas/3_regional/12_continent_and_islands/48_oceanic_islands_p_178-180/maps/P_180_XI.tiff
 Tie Points: atlas/3_regional/12_continent_and_islands/48_oceanic_islands_p_178-180/maps/P_180_XI/P_180_XI.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic
 Target CRS (output):       EPSG:3031 — WGS 84 / Antarctic Polar Stereographic
-Number of tie points: 13
+Number of tie points: 5
 Source dimensions: 2778 x 2260 pixels
 Source bands: 3
 Source declared CRS: EPSG:3031
@@ -18,77 +18,61 @@ CONTROL POINTS
 --------------------------------------------------------------------------------
 ID    Pixel X    Pixel Y    Src X        Src Y        Target X     Target Y    
 --------------------------------------------------------------------------------
-1     254.0      -6.4       -2860096     2863546      -2553329     2142497     
-2     2535.4     3.7        2888687      2837927      2553329      2142497     
-3     2527.7     2224.8     2869304      -2758760     2553329      -2142497    
-4     103.7      1966.0     -3238728     -2106642     -2886579     -1666567    
-5     1389.5     1109.2     1147         52347        0            0           
-6     399.7      1104.2     -2492877     65103        -2194494     0           
-7     1398.3     -46.9      23551        2965583      0            2194494     
-8     2384.4     1113.7     2508174      41032        2194494      0           
-9     1388.9     2262.4     -285         -2853438     0            -2194494    
-10    1389.9     1688.1     2389         -1406298     0            -1089179    
-11    1887.4     1111.4     1255775      46768        1089179      0           
-12    895.8      1106.7     -1242710     58770        -1089179     0           
-13    1391.6     532.7      6667         1505155      0            1089179     
+1     326.5      1436.5     -2677340     -772279      -2324920     -40582      
+2     1171.5     1428.7     -548154      -752721      -2325117     -27057      
+3     2017.7     1430.0     1584203      -755893      -2325235     -13526      
+4     1167.7     256.9      -557669      2200018      -2343829     -27274      
+5     2021.9     259.2      1594775      2194203      -2343948     -13635      
 
 --------------------------------------------------------------------------------
 RESIDUAL ANALYSIS
 --------------------------------------------------------------------------------
 ID    dX (m)       dY (m)       Residual (m)   
 --------------------------------------------------------------------------------
-1     7128.10      -15321.06    16898.07       
-2     -9364.03     -14538.82    17293.42       
-3     -11986.97    15032.29     19226.47       
-4     18039.92     13403.10     22474.03       
-5     -5490.22     -191.54      5493.57        
-6     -19293.39    717.87       19306.74       
-7     6778.99      20427.36     21522.82       
-8     19821.94     41.43        19821.98       
-9     790.08       -15070.82    15091.51       
-10    -601.57      -20065.66    20074.68       
-11    16219.97     -11.56       16219.98       
-12    -17665.75    308.75       17668.45       
-13    -4377.08     15268.66     15883.66       
+1     20.77        8.16         22.32          
+2     -21.79       -5.49        22.47          
+3     0.84         -2.74        2.86           
+4     -19.53       -10.71       22.28          
+5     19.71        10.78        22.47          
 --------------------------------------------------------------------------------
 
 TRANSFORMATION STATISTICS
 --------------------------------------------------------------------------------
 Transformation type: Affine (1st-order polynomial, 6 parameters)
-Number of GCPs used: 13
-Observations:        26 (2 per GCP)
-Degrees of freedom:  20
+Number of GCPs used: 5
+Observations:        10 (2 per GCP)
+Degrees of freedom:  4
 
 Residual Errors:
-  Mean error:       17459.64 m
-  RMSE (total):     17924.45 m
-  RMSE X:           12539.70 m
-  RMSE Y:           12807.88 m
-  Std deviation:     4055.46 m
-  Maximum error:    22474.03 m  (point 4)
-  Minimum error:     5493.57 m
-  RMSE excl. worst point:   17491.99 m (2% lower)
+  Mean error:          18.48 m
+  RMSE (total):        20.06 m
+  RMSE X:              18.32 m
+  RMSE Y:               8.19 m
+  Std deviation:        7.81 m
+  Maximum error:       22.47 m  (point 2)
+  Minimum error:        2.86 m
+  RMSE excl. worst point:      19.41 m (3% lower)
 
 Map scale: 1:250,000
-  RMSE on the sheet:    71.70 mm
-  Max error on sheet:   89.90 mm
+  RMSE on the sheet:     0.08 mm
+  Max error on sheet:    0.09 mm
   (0.5 mm is the conventional plotting accuracy)
 
 Transformation Matrix:
-  a (scale X):        2231.085172
-  b (rotation):          6.545799
-  c (translation X):     -3112743.93
-  d (rotation):          8.880764
-  e (scale Y):       -1915.889894
-  f (translation Y):      2112623.69
+  a (scale X):          -0.136528
+  b (rotation):         15.967000
+  c (translation X):     -2347791.49
+  d (rotation):         15.991480
+  e (scale Y):           0.138741
+  f (translation Y):       -45993.65
 
 Derived Parameters:
-  Pixel size X:      2231.09 m/pixel
-  Pixel size Y:      1915.89 m/pixel
-  Rotation:           0.1681 degrees
+  Pixel size X:         0.14 m/pixel
+  Pixel size Y:         0.14 m/pixel
+  Rotation:          90.4899 degrees
 
 QUALITY ASSESSMENT
 --------------------------------------------------------------------------------
-Overall quality: POOR (RMSE 17924 m = 71.70 mm at 1:250,000)
+Overall quality: EXCELLENT (RMSE 20 m = 0.08 mm at 1:250,000)
 
 ================================================================================
