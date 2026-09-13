@@ -7,7 +7,7 @@ Converting raw tiff scans to smaller jpgs and generating pdf.
 Watches tie point files and regenerates georeferenced maps when they change.
 Also builds per-map and master BibTeX files.
 
-v. 0.8.1
+v. 0.8.0
 Tobias Staal 2026
 
 Changes in 0.8.0
@@ -16,7 +16,19 @@ Changes in 0.8.0
   and the zip_raw option are gone; archiving for publication is now done by
   the separate Zenodo upload script, which compresses one zip per chapter
   into its own staging directory and leaves the working tree untouched.
-* The compiled volume PDFs are now COLOUR instead of bitonal grey.
+* Volume I is COLOUR, Volume II stays GREY, and each volume has its own
+  resolution and quality settings (PDF_*_I / PDF_*_II). The merge runs from
+  a per-volume environment, so the settings are part of each target's
+  signature and changing one volume does not recompile the other.
+* Compiled volumes are merged at 300 dpi rather than 150. Measured on test
+  sheets: colour plates 1.51 MB/page at 300 dpi against 0.46 at 150, grey
+  text pages 0.84 MB/page at 300.
+* Fixed a silent no-op in the merge step: Ghostscript only downsamples an
+  image when it exceeds the target by its *DownsampleThreshold, which
+  defaults to 1.5. A 400 dpi scan is 1.33x of 300 dpi, so asking for 300 did
+  nothing at all — 300 and 400 dpi produced byte-identical files. The
+  thresholds are now set to 1.0, so PDF_MERGE_DPI_* is honoured exactly.
+* The Volume I plates are now COLOUR instead of bitonal grey.
   - Per-page rendering keeps sRGB: '-colorspace gray' and '-normalize' are
     gone (per-page normalize also shifted colours from sheet to sheet), as
     are '-morphology Close' and '-sharpen', which were bitonal cleanup
@@ -27,7 +39,13 @@ Changes in 0.8.0
     colour volume at 150 dpi came out ~20% SMALLER than the old grey one
     (0.46 vs 0.58 MB per page); 200 dpi costs about 0.76 MB per page.
   - All of it is tunable from the PDF OUTPUT SETTINGS block below; set
-    PDF_COLOUR = False to get the old grey behaviour back.
+    PDF_COLOUR_I = False to get the old grey behaviour back for the plates.
+* Decoder noise is muted. The scans carry EXIF PixelXDimension as the wrong
+  data type, so libtiff printed two "tag ignored" warnings per conversion —
+  about 3000 lines per full build. ImageMagick now runs with '-quiet' and
+  Ghostscript with '-q'; QUIET_TOOLS = False restores the full output.
+  '-quiet' has to precede the input filename to suppress read warnings, so it
+  is added in magick_builder() and not in the MAGICK_*_ARGS lists.
 * Page PDFs now live in export/pdf_color/ rather than export/pdf_bw/. The
   old directories can be deleted; every page is re-rendered once because the
   ImageMagick arguments are part of each target's signature.
@@ -160,31 +178,46 @@ for d in [jpg_large_dir, jpg_small_dir, pdf_page_I_dir, pdf_page_II_dir]:
 #      PDF_MERGE_DPI, recompressing at PDF_MERGE_JPEG_QUALITY. This is where
 #      the real size reduction happens, so per-page quality can stay generous.
 #
-# Measured on test plates (3 sheets, 52 MB of LZW TIFF in):
-#   old grey pipeline, '/ebook' only    0.58 MB/page
-#   colour, PDF_MERGE_DPI = 150         0.46 MB/page   (smaller AND in colour)
-#   colour, PDF_MERGE_DPI = 200         0.76 MB/page
-# 150 dpi reads comfortably on screen; raise it to 200 or 300 if the compiled
-# volume is meant for printing. Fine detail lives in the GeoTIFFs and the
-# large JPEGs anyway.
+# Everything is per volume, because the two volumes are different objects:
+# Volume I is colour map plates, Volume II is text.
+#
+# Measured on test sheets (a 4000x3000 colour plate and an A4 text page):
+#   Volume I, colour   150 dpi   0.46 MB/page
+#                      200 dpi   0.76 MB/page
+#                      300 dpi   1.51 MB/page   <- current setting
+#                      400 dpi   2.44 MB/page   (no downsampling at all)
+#   Volume II, grey    200 dpi   0.43 MB/page
+#                      300 dpi   0.84 MB/page   <- current setting
+#   Volume II, colour  300 dpi   0.89 MB/page   (for comparison)
+# Those are synthetic, deliberately busy sheets; real scans of paper usually
+# come out somewhat smaller. As a rough guide, Volume I at 300 dpi lands
+# around 1.5 MB per plate, so budget accordingly before uploading.
 # ============================================================================
 
-PDF_COLOUR = True            # False restores the previous grey/bitonal output
+PDF_COLOUR_I = True          # Volume I: colour map plates
+PDF_COLOUR_II = False        # Volume II: text volume, grey is smaller and
+                             # sharper for type; True makes it colour too
 
-PDF_PAGE_DENSITY_I = 400     # Volume I plates: sheet size declaration, dpi
-PDF_PAGE_DENSITY_II = 300    # Volume II text pages
+PDF_PAGE_DENSITY_I = 400     # sheet size declaration, dpi (not a resample)
+PDF_PAGE_DENSITY_II = 300
 
-PDF_PAGE_QUALITY_I = 72      # per-page JPEG quality before the merge
-PDF_PAGE_QUALITY_II = 65
+PDF_PAGE_QUALITY_I = 80      # per-page JPEG quality, before the merge step
+PDF_PAGE_QUALITY_II = 75     # keep this above the merge quality: the merge
+                             # recompresses, and starting from a soft page
+                             # only compounds the loss
 
 PDF_CHROMA_SUBSAMPLING = '4:2:0'   # halves the colour channels: large saving,
                                    # invisible on scanned paper. '4:4:4' keeps
                                    # full chroma if a plate shows artefacts.
-PDF_PAGE_LEVEL = '1%,99%'    # gentle contrast stretch
+PDF_PAGE_LEVEL = '2%,98%'    # gentle contrast stretch for the colour path;
+                             # the grey path keeps the old 4%,96% + -normalize
 
-
-PDF_MERGE_DPI = 150          # Ghostscript downsample target for the volumes
-PDF_MERGE_JPEG_QUALITY = 70  # Ghostscript recompression quality (0-100)
+# Ghostscript downsample target and recompression quality for the compiled
+# volumes. This is the main size/detail dial.
+PDF_MERGE_DPI_I = 300
+PDF_MERGE_JPEG_QUALITY_I = 78
+PDF_MERGE_DPI_II = 300
+PDF_MERGE_JPEG_QUALITY_II = 75
 
 
 # ============================================================================
@@ -214,31 +247,48 @@ env = Environment(ENV=os.environ.copy())
 MAGICK = 'magick'
 GHOSTSCRIPT = 'gs'
 
+# ----------------------------------------------------------------------------
+# The scanner writes EXIF PixelXDimension/PixelYDimension as SHORT where the
+# spec wants LONG, so libtiff prints two warnings per file:
+#     Wrong data type 3 for "PixelXDimension"; tag ignored.
+# The tag is ignored either way and nothing downstream uses it, so the
+# warnings are pure noise across ~500 scans x 3 outputs.
+#
+# '-quiet' silences them, but ONLY if it comes before the input filename:
+# it is a setting that has to be in force while the file is being read.
+# 'magick in.tif -quiet out.jpg' still prints everything, which is why this
+# is handled in magick_builder() rather than in the MAGICK_*_ARGS lists.
+# Set QUIET_TOOLS = False when a scan looks wrong and you want to see
+# everything the decoders have to say about it.
+# ----------------------------------------------------------------------------
+QUIET_TOOLS = True
+
 MAGICK_LARGE_JPG_ARGS = [
     '-define', 'registry:warning=none', '-compress', 'JPEG',
-    '-quality', '90%', '-level', '1%,99%',
+    '-quality', '90%', '-level', '2%,98%',
 ]
 MAGICK_SMALL_JPG_ARGS = [
     '-define', 'registry:warning=none', '-resize', '50%', '-compress', 'JPEG',
-    '-quality', '55%', '-level', '2%,98%',
+    '-quality', '55%', '-level', '4%,96%',
 ]
 
 
-def magick_pdf_args(density, quality):
+def magick_pdf_args(density, quality, colour):
     """
     ImageMagick arguments for one page PDF.
 
-    Colour path (PDF_COLOUR): stay in sRGB, stretch contrast gently, flatten
-    onto white, straighten, then JPEG with chroma subsampling. Deliberately
-    no '-normalize' (it rebalances every sheet independently), no
+    Colour path: stay in sRGB, stretch contrast gently, flatten onto white,
+    straighten, then JPEG with chroma subsampling. Deliberately no
+    '-normalize' (it rebalances every sheet independently), no
     '-morphology Close' and no '-sharpen' — those were bitonal cleanup steps
     that on a colour scan mostly add JPEG noise, and noise is bytes.
 
-    Grey path: the previous bitonal recipe, kept for comparison.
+    Grey path: the original recipe, which suits the Volume II text pages —
+    normalize and the morphological close firm up type and thin rules.
     """
     common = ['-define', 'registry:warning=none', '-density', str(density)]
 
-    if PDF_COLOUR:
+    if colour:
         return common + [
             '-colorspace', 'sRGB',
             '-level', PDF_PAGE_LEVEL,
@@ -259,8 +309,10 @@ def magick_pdf_args(density, quality):
     ]
 
 
-MAGICK_PDF_I_ARGS = magick_pdf_args(PDF_PAGE_DENSITY_I, PDF_PAGE_QUALITY_I)
-MAGICK_PDF_II_ARGS = magick_pdf_args(PDF_PAGE_DENSITY_II, PDF_PAGE_QUALITY_II)
+MAGICK_PDF_I_ARGS = magick_pdf_args(PDF_PAGE_DENSITY_I, PDF_PAGE_QUALITY_I,
+                                    PDF_COLOUR_I)
+MAGICK_PDF_II_ARGS = magick_pdf_args(PDF_PAGE_DENSITY_II, PDF_PAGE_QUALITY_II,
+                                     PDF_COLOUR_II)
 
 
 def run_argv(argv, description):
@@ -280,7 +332,8 @@ def magick_builder(target, source, env):
     """Run ImageMagick with MAGICK_ARGS, source and target passed as argv."""
     src_path = str(source[0])
     tgt_path = str(target[0])
-    argv = [MAGICK, src_path] + list(env['MAGICK_ARGS']) + [tgt_path]
+    quiet = ['-quiet'] if QUIET_TOOLS else []
+    argv = [MAGICK] + quiet + [src_path] + list(env['MAGICK_ARGS']) + [tgt_path]
     return run_argv(argv, f"convert {os.path.basename(src_path)}")
 
 
@@ -289,18 +342,19 @@ magick_action = Action(magick_builder, "Converting $SOURCE -> $TARGET",
 env.Append(BUILDERS={'Magick': Builder(action=magick_action)})
 
 
-def ghostscript_argv(tgt_path):
+def ghostscript_argv(tgt_path, colour, dpi, jpeg_quality):
     """
     Ghostscript arguments for merging the page PDFs into one volume.
 
     '/ebook' is only a baseline here; the explicit image settings that follow
     override it, because the preset's fixed 150 dpi and automatic filter choice
-    gave no control over the colour/size trade-off. Downsampling to
-    PDF_MERGE_DPI and recompressing at PDF_MERGE_JPEG_QUALITY is what keeps a
-    colour volume to a sane size.
+    gave no control over the colour/size trade-off. Downsampling to `dpi` and
+    recompressing at `jpeg_quality` is what keeps a colour volume to a sane
+    size, and what lets the grey text volume stay at print resolution.
     """
     argv = [
         GHOSTSCRIPT, '-sDEVICE=pdfwrite', '-dNOPAUSE', '-dBATCH', '-dSAFER',
+        *(['-q'] if QUIET_TOOLS else []),
         f'-sOutputFile={tgt_path}',
         '-dAutoRotatePages=/None',
         '-dCompatibilityLevel=1.7',
@@ -309,7 +363,7 @@ def ghostscript_argv(tgt_path):
         '-dCompressFonts=true', '-dSubsetFonts=true',
     ]
 
-    if PDF_COLOUR:
+    if colour:
         argv += [
             # Keep everything in sRGB: no CMYK, no separation to grey.
             '-dColorConversionStrategy=/sRGB',
@@ -317,33 +371,53 @@ def ghostscript_argv(tgt_path):
             '-dConvertCMYKImagesToRGB=true',
         ]
     else:
+        # Force the whole volume to greyscale, whatever the pages carry.
         argv += ['-dColorConversionStrategy=/Gray',
                  '-dProcessColorModel=/DeviceGray']
 
     argv += [
         # Downsample and recompress every image explicitly.
+        #
+        # The *Threshold values matter: Ghostscript defaults them to 1.5, so
+        # it only downsamples when the image is more than 1.5x the target.
+        # A 400 dpi scan is just 1.33x of 300, so with the default the
+        # requested 300 dpi was silently ignored and the pages went in at
+        # full resolution (measured: identical output at 300 and 400 dpi).
+        # Setting the threshold to 1.0 makes the target resolution mean what
+        # it says.
         '-dDownsampleColorImages=true',
         '-dColorImageDownsampleType=/Bicubic',
-        f'-dColorImageResolution={PDF_MERGE_DPI}',
+        '-dColorImageDownsampleThreshold=1.0',
+        f'-dColorImageResolution={dpi}',
         '-dAutoFilterColorImages=false',
         '-dColorImageFilter=/DCTEncode',
         '-dDownsampleGrayImages=true',
         '-dGrayImageDownsampleType=/Bicubic',
-        f'-dGrayImageResolution={PDF_MERGE_DPI}',
+        '-dGrayImageDownsampleThreshold=1.0',
+        f'-dGrayImageResolution={dpi}',
         '-dAutoFilterGrayImages=false',
         '-dGrayImageFilter=/DCTEncode',
         '-dDownsampleMonoImages=true',
         '-dMonoImageDownsampleType=/Subsample',
-        f'-dMonoImageResolution={PDF_MERGE_DPI * 2}',
-        f'-dJPEGQ={PDF_MERGE_JPEG_QUALITY}',
+        '-dMonoImageDownsampleThreshold=1.0',
+        f'-dMonoImageResolution={dpi * 2}',
+        f'-dJPEGQ={jpeg_quality}',
     ]
     return argv
 
 
 def ghostscript_builder(target, source, env):
-    """Merge PDFs with Ghostscript, page order given by the source order."""
+    """Merge PDFs with Ghostscript, page order given by the source order.
+
+    Colour, resolution and quality come from the environment, so each volume
+    gets its own settings and they are part of the target's signature.
+    """
     tgt_path = str(target[0])
-    argv = ghostscript_argv(tgt_path) + [str(s) for s in source]
+    argv = ghostscript_argv(tgt_path,
+                            colour=env['PDF_COLOUR'],
+                            dpi=env['PDF_MERGE_DPI'],
+                            jpeg_quality=env['PDF_MERGE_JPEG_QUALITY'])
+    argv += [str(s) for s in source]
     return run_argv(argv, f"compile {os.path.basename(tgt_path)} "
                           f"from {len(source)} page(s)")
 
@@ -362,10 +436,14 @@ env_small_jpg = env.Clone(MAGICK_ARGS=MAGICK_SMALL_JPG_ARGS)
 env_pdf_I = env.Clone(MAGICK_ARGS=MAGICK_PDF_I_ARGS)
 env_pdf_II = env.Clone(MAGICK_ARGS=MAGICK_PDF_II_ARGS)
 
-# Expose the merge settings to the PDF builder's varlist.
-env['PDF_MERGE_DPI'] = PDF_MERGE_DPI
-env['PDF_MERGE_JPEG_QUALITY'] = PDF_MERGE_JPEG_QUALITY
-env['PDF_COLOUR'] = PDF_COLOUR
+# One merge environment per volume, so Volume I can be colour at one
+# resolution while Volume II is grey at another.
+env_merge_I = env.Clone(PDF_COLOUR=PDF_COLOUR_I,
+                        PDF_MERGE_DPI=PDF_MERGE_DPI_I,
+                        PDF_MERGE_JPEG_QUALITY=PDF_MERGE_JPEG_QUALITY_I)
+env_merge_II = env.Clone(PDF_COLOUR=PDF_COLOUR_II,
+                         PDF_MERGE_DPI=PDF_MERGE_DPI_II,
+                         PDF_MERGE_JPEG_QUALITY=PDF_MERGE_JPEG_QUALITY_II)
 
 image_nodes = []
 
@@ -442,21 +520,23 @@ def get_ordered_nodes(csv_filename, node_dict):
 
 compiled_pdfs = []
 
-for volume_label, csv_file, node_dict in (
-    ('I', 'volume_I.csv', pdf_I_nodes),
-    ('II', 'volume_II.csv', pdf_II_nodes),
+for volume_label, csv_file, node_dict, merge_env in (
+    ('I', 'volume_I.csv', pdf_I_nodes, env_merge_I),
+    ('II', 'volume_II.csv', pdf_II_nodes, env_merge_II),
 ):
     ordered_nodes = get_ordered_nodes(csv_file, node_dict)
     if not ordered_nodes:
         continue
-    vol_pdf = env.MergePDF(
+    vol_pdf = merge_env.MergePDF(
         target=f'{export_dir}/atlas_antarktiki_{volume_label}_complete.pdf',
         source=ordered_nodes,
     )
-    env.Depends(vol_pdf, csv_file)
+    merge_env.Depends(vol_pdf, csv_file)
     compiled_pdfs.append(vol_pdf)
     print(f"Configured compiled PDF for Volume {volume_label} "
-          f"({len(ordered_nodes)} pages from {csv_file})")
+          f"({len(ordered_nodes)} pages from {csv_file}, "
+          f"{'colour' if merge_env['PDF_COLOUR'] else 'grey'} at "
+          f"{merge_env['PDF_MERGE_DPI']} dpi)")
 
 
 # ============================================================================
@@ -1533,8 +1613,10 @@ Default(georef_nodes + bib_nodes + list(master_bib_node) + image_nodes + compile
 print("\n" + "=" * 80)
 print(f"georef: {len(georef_nodes)} node(s) | bib: {len(bib_nodes) + 1} | "
       f"images: {len(image_nodes)} | compiled pdf: {len(compiled_pdfs)}")
-print(f"pdf output: {'colour' if PDF_COLOUR else 'grey'}, merged at "
-      f"{PDF_MERGE_DPI} dpi / JPEG Q{PDF_MERGE_JPEG_QUALITY}")
+print(f"pdf vol I:  {'colour' if PDF_COLOUR_I else 'grey'} at "
+      f"{PDF_MERGE_DPI_I} dpi / JPEG Q{PDF_MERGE_JPEG_QUALITY_I}")
+print(f"pdf vol II: {'colour' if PDF_COLOUR_II else 'grey'} at "
+      f"{PDF_MERGE_DPI_II} dpi / JPEG Q{PDF_MERGE_JPEG_QUALITY_II}")
 print("Targets: scons | scons georef | scons bib | scons images | scons pdf")
 print("         scons -k             keep building past a failing map")
 print("=" * 80)
