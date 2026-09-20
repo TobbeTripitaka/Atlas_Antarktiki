@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:32:28
+Date: 2026-09-14 13:22:52
 Source Raster: atlas/2_general/10_biology/40_terrestrial_biology_and_regionalization_p_132/maps/P_132_XII/P_132_XII.tiff
-Target Raster: atlas/2_general/10_biology/40_terrestrial_biology_and_regionalization_p_132/maps/P_132_XII.tiff
+Target Raster: maps/10_biology/40_terrestrial_biology_and_regionalization_p_132/P_132_XII.tiff
 Tie Points: atlas/2_general/10_biology/40_terrestrial_biology_and_regionalization_p_132/maps/P_132_XII/P_132_XII.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

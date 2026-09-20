@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:34:10
+Date: 2026-09-14 13:24:33
 Source Raster: atlas/2_general/4_general_maps/9_queen_maud_land_p_18/maps/P_18_II/P_18_II.tiff
-Target Raster: atlas/2_general/4_general_maps/9_queen_maud_land_p_18/maps/P_18_II.tiff
+Target Raster: maps/4_general_maps/9_queen_maud_land_p_18/P_18_II.tiff
 Tie Points: atlas/2_general/4_general_maps/9_queen_maud_land_p_18/maps/P_18_II/P_18_II.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

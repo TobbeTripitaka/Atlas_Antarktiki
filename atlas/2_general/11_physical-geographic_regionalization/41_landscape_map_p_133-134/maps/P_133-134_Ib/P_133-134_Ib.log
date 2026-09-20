@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:32:31
+Date: 2026-09-14 13:22:55
 Source Raster: atlas/2_general/11_physical-geographic_regionalization/41_landscape_map_p_133-134/maps/P_133-134_Ib/P_133-134_Ib.tiff
-Target Raster: atlas/2_general/11_physical-geographic_regionalization/41_landscape_map_p_133-134/maps/P_133-134_Ib.tiff
+Target Raster: maps/11_physical-geographic_regionalization/41_landscape_map_p_133-134/P_133-134_Ib.tiff
 Tie Points: atlas/2_general/11_physical-geographic_regionalization/41_landscape_map_p_133-134/maps/P_133-134_Ib/P_133-134_Ib.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

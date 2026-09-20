@@ -7,8 +7,33 @@ Converting raw tiff scans to smaller jpgs and generating pdf.
 Watches tie point files and regenerates georeferenced maps when they change.
 Also builds per-map and master BibTeX files.
 
-v. 0.8.0
+v. 0.8.1
 Tobias Staal 2026
+
+Changes in 0.8.1
+----------------
+* Georeferenced rasters are no longer written inside atlas/. They go to a
+  separate output tree, GEOREF_OUTPUT_DIR ('maps/'), which mirrors the atlas
+  structure minus the part level and minus the per-map subdirectory:
+
+      atlas/3_regional/12_continent_and_islands/48_oceanic_islands_p_178-180/
+            maps/P_178_I/P_178_I.gpkg    tie points, stays
+            maps/P_178_I/P_178_I.bib     citation, stays
+            maps/P_178_I/P_178_I.log     run log, stays
+
+      maps/12_continent_and_islands/48_oceanic_islands_p_178-180/
+            P_178_I.tiff                 georeferenced raster
+            P_178_I.bib                  copy of the citation
+
+  So atlas/ is now sources only (raw scans, tie points, bib, logs) and the
+  new tree is products only, holding just the maps that were georeferenced,
+  each with its citation as a sibling file rather than in a subdirectory.
+* Both .bib copies are built from the same Value node, so they cannot drift
+  apart, and neither depends on the workbook as a whole.
+* Paths outside ATLAS_SOURCE_DIR fall back to the old behaviour with a
+  warning instead of writing somewhere unexpected.
+* migrate_georeferenced_maps.py moves rasters already sitting in atlas/ into
+  the new tree. It is a separate run-once script, not a build target.
 
 Changes in 0.8.0
 ----------------
@@ -151,6 +176,33 @@ SOURCE_CRS = 3031
 
 # CRS used for output when the spreadsheet leaves "Target crs" empty.
 DEFAULT_CRS = 3031
+
+# ----------------------------------------------------------------------------
+# WHERE THE GEOREFERENCED MAPS GO
+#
+# atlas/ holds the sources: raw scans, tie point vectors, per-map .bib and the
+# georeferencing .log, each map in its own subdirectory.
+#
+# The georeferenced rasters are written to a separate, flatter tree that only
+# ever contains maps that were actually georeferenced, each next to a copy of
+# its own .bib so a citation travels with the file:
+#
+#   atlas/3_regional/12_continent_and_islands/48_oceanic_islands_p_178-180/
+#         maps/P_178_I/P_178_I.gpkg          tie points   (stays)
+#         maps/P_178_I/P_178_I.bib           citation     (stays)
+#         maps/P_178_I/P_178_I.log           run log      (stays)
+#
+#   maps/12_continent_and_islands/48_oceanic_islands_p_178-180/
+#         P_178_I.tiff                       georeferenced raster
+#         P_178_I.bib                        copy of the citation
+#
+# The volume/part level ('3_regional') is dropped on the way across, because
+# the chapter numbers are already unique across the atlas. Set
+# GEOREF_KEEP_PART_LEVEL = True to keep it.
+# ----------------------------------------------------------------------------
+ATLAS_SOURCE_DIR = 'atlas'
+GEOREF_OUTPUT_DIR = 'maps'
+GEOREF_KEEP_PART_LEVEL = False
 
 # Export directory
 export_dir = 'export'
@@ -543,6 +595,43 @@ for volume_label, csv_file, node_dict, merge_env in (
 # HELPER FUNCTIONS
 # ============================================================================
 
+def georef_output_dir(tiepoint_path,
+                      source_root=ATLAS_SOURCE_DIR,
+                      output_root=GEOREF_OUTPUT_DIR,
+                      keep_part_level=GEOREF_KEEP_PART_LEVEL):
+    """
+    Where the georeferenced raster and its .bib copy belong.
+
+    Input  atlas/3_regional/12_continent_and_islands/48_oceanic_islands_p_178-180/maps/P_178_I/P_178_I.gpkg
+    Output maps/12_continent_and_islands/48_oceanic_islands_p_178-180
+
+    The tie point lives at <subsection>/maps/<stem>/<stem>.gpkg, so the
+    subsection is three levels up. Everything between the source root and the
+    subsection is preserved, minus the leading part directory unless
+    keep_part_level is set.
+
+    Returns None when the path does not sit under the source root, so the
+    caller can warn and fall back rather than writing somewhere surprising.
+    """
+    tiepoint_path = Path(tiepoint_path)
+
+    # <stem>/  ->  maps/  ->  <subsection>/
+    subsection = tiepoint_path.parent.parent.parent
+
+    try:
+        relative = subsection.relative_to(source_root)
+    except ValueError:
+        return None
+
+    parts = relative.parts
+    if not parts:
+        return None
+    if not keep_part_level and len(parts) > 1:
+        parts = parts[1:]          # drop '3_regional' and friends
+
+    return Path(output_root, *parts)
+
+
 def get_target_crs(crs_value, default_crs=DEFAULT_CRS):
     """
     Extract and validate EPSG code from Excel cell.
@@ -777,6 +866,9 @@ def write_bibtex_file(bib_path, bib_entry):
         f"{ATLAS_PARENT_BIB}\n"
         f"{bib_entry}\n"
     )
+    # The copy beside a georeferenced raster may be the first thing written
+    # into its directory, so do not assume the directory exists.
+    os.makedirs(str(Path(bib_path).parent), exist_ok=True)
     with open(bib_path, 'w', encoding='utf-8') as f:
         f.write(content)
 
@@ -1367,7 +1459,8 @@ except Exception as e:
 
 build_tasks = []
 georef_nodes = []
-bib_nodes = []
+bib_nodes = []            # per-map .bib inside atlas/
+georef_bib_nodes = []     # the copy beside each georeferenced raster
 
 if not df.empty and 'tiepoint_path' in df.columns and 'raw_path' in df.columns:
 
@@ -1410,7 +1503,19 @@ if not df.empty and 'tiepoint_path' in df.columns and 'raw_path' in df.columns:
             map_dir = tiepoint_path.parent.parent / stem
             os.makedirs(str(map_dir), exist_ok=True)
 
-            target_tiff = tiepoint_path.parent.parent / f"{stem}.tiff"
+            # The georeferenced raster leaves atlas/ for the output tree; the
+            # log stays here with the inputs that produced it.
+            out_dir = georef_output_dir(tiepoint_path)
+            if out_dir is None:
+                print(f"WARNING: {tiepoint_path} is not under "
+                      f"'{ATLAS_SOURCE_DIR}/' — writing its georeferenced map "
+                      f"beside the tie points instead")
+                out_dir = tiepoint_path.parent.parent
+            # Deliberately not created here: the builders make their own
+            # directories, so a map that never georeferences leaves no empty
+            # folder behind in the output tree.
+
+            target_tiff = out_dir / f"{stem}.tiff"
             target_log = map_dir / f"{stem}.log"
 
             build_tasks.append({
@@ -1419,6 +1524,7 @@ if not df.empty and 'tiepoint_path' in df.columns and 'raw_path' in df.columns:
                 'target_log': str(target_log),
                 'target_tiff': str(target_tiff),
                 'map_dir': str(map_dir),
+                'out_dir': str(out_dir),
                 'stem': stem,
                 'target_crs': target_crs,
                 'map_scale': safe_field(row.get('Scale', '')),
@@ -1492,11 +1598,28 @@ if not df.empty and 'tiepoint_path' in df.columns and 'raw_path' in df.columns:
 
         # The source is the rendered entry itself, not the workbook, so a .bib
         # is rewritten only when that row's own metadata changes.
+        bib_entry_node = bib_env.Value(bib_entry)
+
         bib_target = bib_env.BibTeX(
             target=bib_path,
-            source=bib_env.Value(bib_entry)
+            source=bib_entry_node
         )
         bib_nodes.extend(list(bib_target))
+
+        # A second copy lands beside the georeferenced raster, so the output
+        # tree is self-contained: one map, one citation, no subdirectories.
+        # Built from the same Value node, so both copies always agree.
+        georef_bib_path = str(Path(task['out_dir']) / f"{task['stem']}.bib")
+        if georef_bib_path != bib_path:
+            georef_bib_target = bib_env.BibTeX(
+                target=georef_bib_path,
+                source=bib_entry_node
+            )
+            # Tie it to the raster so the output tree only ever holds maps
+            # that actually georeferenced: if the map fails, SCons skips its
+            # citation instead of leaving an orphan .bib.
+            bib_env.Depends(georef_bib_target, georef_targets)
+            georef_bib_nodes.extend(list(georef_bib_target))
 
     if duplicate_report:
         print(f"\nINFO: {len(duplicate_report)} map(s) appear on more than one row; "
@@ -1597,21 +1720,25 @@ master_bib_node = env.MasterBibTeX(
 )
 print(f"Configured master bib: {master_bib_target} "
       f"(depends on {len(bib_nodes)} individual bib files)")
+print(f"Georeferenced maps go to {GEOREF_OUTPUT_DIR}/, each with a copy of "
+      f"its .bib ({len(georef_bib_nodes)} map(s))")
 
 
 # ============================================================================
 # ALIASES
 # ============================================================================
 
-env.Alias('georef', georef_nodes)
-env.Alias('bib', bib_nodes + list(master_bib_node))
+env.Alias('georef', georef_nodes + georef_bib_nodes)
+env.Alias('bib', bib_nodes + georef_bib_nodes + list(master_bib_node))
 env.Alias('pdf', compiled_pdfs)
 env.Alias('images', image_nodes)
 
-Default(georef_nodes + bib_nodes + list(master_bib_node) + image_nodes + compiled_pdfs)
+Default(georef_nodes + bib_nodes + georef_bib_nodes + list(master_bib_node)
+        + image_nodes + compiled_pdfs)
 
 print("\n" + "=" * 80)
-print(f"georef: {len(georef_nodes)} node(s) | bib: {len(bib_nodes) + 1} | "
+print(f"georef: {len(georef_nodes)} node(s) -> {GEOREF_OUTPUT_DIR}/ | "
+      f"bib: {len(bib_nodes) + len(georef_bib_nodes) + 1} | "
       f"images: {len(image_nodes)} | compiled pdf: {len(compiled_pdfs)}")
 print(f"pdf vol I:  {'colour' if PDF_COLOUR_I else 'grey'} at "
       f"{PDF_MERGE_DPI_I} dpi / JPEG Q{PDF_MERGE_JPEG_QUALITY_I}")

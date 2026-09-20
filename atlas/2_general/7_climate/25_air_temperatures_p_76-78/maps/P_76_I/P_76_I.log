@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:36:41
+Date: 2026-09-14 13:27:02
 Source Raster: atlas/2_general/7_climate/25_air_temperatures_p_76-78/maps/P_76_I/P_76_I.tiff
-Target Raster: atlas/2_general/7_climate/25_air_temperatures_p_76-78/maps/P_76_I.tiff
+Target Raster: maps/7_climate/25_air_temperatures_p_76-78/P_76_I.tiff
 Tie Points: atlas/2_general/7_climate/25_air_temperatures_p_76-78/maps/P_76_I/P_76_I.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

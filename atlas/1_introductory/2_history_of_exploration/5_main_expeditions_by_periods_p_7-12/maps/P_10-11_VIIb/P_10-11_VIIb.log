@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:31:35
+Date: 2026-09-14 13:21:56
 Source Raster: atlas/1_introductory/2_history_of_exploration/5_main_expeditions_by_periods_p_7-12/maps/P_10-11_VIIb/P_10-11_VIIb.tiff
-Target Raster: atlas/1_introductory/2_history_of_exploration/5_main_expeditions_by_periods_p_7-12/maps/P_10-11_VIIb.tiff
+Target Raster: maps/2_history_of_exploration/5_main_expeditions_by_periods_p_7-12/P_10-11_VIIb.tiff
 Tie Points: atlas/1_introductory/2_history_of_exploration/5_main_expeditions_by_periods_p_7-12/maps/P_10-11_VIIb/P_10-11_VIIb.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

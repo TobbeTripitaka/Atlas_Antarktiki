@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:35:33
+Date: 2026-09-14 13:25:55
 Source Raster: atlas/2_general/4_general_maps/13_marie_byrd_land_p_23/maps/P_23_VI/P_23_VI.tiff
-Target Raster: atlas/2_general/4_general_maps/13_marie_byrd_land_p_23/maps/P_23_VI.tiff
+Target Raster: maps/4_general_maps/13_marie_byrd_land_p_23/P_23_VI.tiff
 Tie Points: atlas/2_general/4_general_maps/13_marie_byrd_land_p_23/maps/P_23_VI/P_23_VI.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

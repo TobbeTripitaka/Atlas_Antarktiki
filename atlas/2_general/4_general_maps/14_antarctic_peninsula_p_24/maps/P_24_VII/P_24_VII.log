@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:35:34
+Date: 2026-09-14 13:25:56
 Source Raster: atlas/2_general/4_general_maps/14_antarctic_peninsula_p_24/maps/P_24_VII/P_24_VII.tiff
-Target Raster: atlas/2_general/4_general_maps/14_antarctic_peninsula_p_24/maps/P_24_VII.tiff
+Target Raster: maps/4_general_maps/14_antarctic_peninsula_p_24/P_24_VII.tiff
 Tie Points: atlas/2_general/4_general_maps/14_antarctic_peninsula_p_24/maps/P_24_VII/P_24_VII.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

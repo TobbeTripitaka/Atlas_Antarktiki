@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:37:03
+Date: 2026-09-14 13:27:23
 Source Raster: atlas/2_general/7_climate/28_synoptic_climatology_p_88-93/maps/P_89_V/P_89_V.tiff
-Target Raster: atlas/2_general/7_climate/28_synoptic_climatology_p_88-93/maps/P_89_V.tiff
+Target Raster: maps/7_climate/28_synoptic_climatology_p_88-93/P_89_V.tiff
 Tie Points: atlas/2_general/7_climate/28_synoptic_climatology_p_88-93/maps/P_89_V/P_89_V.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

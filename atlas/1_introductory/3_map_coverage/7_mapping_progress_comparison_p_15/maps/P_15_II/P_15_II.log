@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:33:15
+Date: 2026-09-14 13:23:38
 Source Raster: atlas/1_introductory/3_map_coverage/7_mapping_progress_comparison_p_15/maps/P_15_II/P_15_II.tiff
-Target Raster: atlas/1_introductory/3_map_coverage/7_mapping_progress_comparison_p_15/maps/P_15_II.tiff
+Target Raster: maps/3_map_coverage/7_mapping_progress_comparison_p_15/P_15_II.tiff
 Tie Points: atlas/1_introductory/3_map_coverage/7_mapping_progress_comparison_p_15/maps/P_15_II/P_15_II.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

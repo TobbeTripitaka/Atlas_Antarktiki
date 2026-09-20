@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:33:40
+Date: 2026-09-14 13:24:03
 Source Raster: atlas/3_regional/12_continent_and_islands/46_adelie_coast_victoria_land_and_ross_ice_shelf_p_169-171/maps/P_171_III/P_171_III.tiff
-Target Raster: atlas/3_regional/12_continent_and_islands/46_adelie_coast_victoria_land_and_ross_ice_shelf_p_169-171/maps/P_171_III.tiff
+Target Raster: maps/12_continent_and_islands/46_adelie_coast_victoria_land_and_ross_ice_shelf_p_169-171/P_171_III.tiff
 Tie Points: atlas/3_regional/12_continent_and_islands/46_adelie_coast_victoria_land_and_ross_ice_shelf_p_169-171/maps/P_171_III/P_171_III.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

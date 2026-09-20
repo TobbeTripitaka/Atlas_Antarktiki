@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:36:54
+Date: 2026-09-14 13:27:15
 Source Raster: atlas/2_general/7_climate/26_atmospheric_pressure_and_winds_p_79-86/maps/P_83_IV_B/P_83_IV_B.tiff
-Target Raster: atlas/2_general/7_climate/26_atmospheric_pressure_and_winds_p_79-86/maps/P_83_IV_B.tiff
+Target Raster: maps/7_climate/26_atmospheric_pressure_and_winds_p_79-86/P_83_IV_B.tiff
 Tie Points: atlas/2_general/7_climate/26_atmospheric_pressure_and_winds_p_79-86/maps/P_83_IV_B/P_83_IV_B.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

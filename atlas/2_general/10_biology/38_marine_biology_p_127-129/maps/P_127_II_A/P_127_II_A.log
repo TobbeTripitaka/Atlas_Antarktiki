@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:32:14
+Date: 2026-09-14 13:22:38
 Source Raster: atlas/2_general/10_biology/38_marine_biology_p_127-129/maps/P_127_II_A/P_127_II_A.tiff
-Target Raster: atlas/2_general/10_biology/38_marine_biology_p_127-129/maps/P_127_II_A.tiff
+Target Raster: maps/10_biology/38_marine_biology_p_127-129/P_127_II_A.tiff
 Tie Points: atlas/2_general/10_biology/38_marine_biology_p_127-129/maps/P_127_II_A/P_127_II_A.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

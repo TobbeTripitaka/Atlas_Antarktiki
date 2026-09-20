@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:35:31
+Date: 2026-09-14 13:25:53
 Source Raster: atlas/2_general/4_general_maps/12_wilkes_land_and_victoria_land_p_22/maps/P_22_V/P_22_V.tiff
-Target Raster: atlas/2_general/4_general_maps/12_wilkes_land_and_victoria_land_p_22/maps/P_22_V.tiff
+Target Raster: maps/4_general_maps/12_wilkes_land_and_victoria_land_p_22/P_22_V.tiff
 Tie Points: atlas/2_general/4_general_maps/12_wilkes_land_and_victoria_land_p_22/maps/P_22_V/P_22_V.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

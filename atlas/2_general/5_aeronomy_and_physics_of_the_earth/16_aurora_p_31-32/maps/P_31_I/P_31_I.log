@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:35:40
+Date: 2026-09-14 13:26:02
 Source Raster: atlas/2_general/5_aeronomy_and_physics_of_the_earth/16_aurora_p_31-32/maps/P_31_I/P_31_I.tiff
-Target Raster: atlas/2_general/5_aeronomy_and_physics_of_the_earth/16_aurora_p_31-32/maps/P_31_I.tiff
+Target Raster: maps/5_aeronomy_and_physics_of_the_earth/16_aurora_p_31-32/P_31_I.tiff
 Tie Points: atlas/2_general/5_aeronomy_and_physics_of_the_earth/16_aurora_p_31-32/maps/P_31_I/P_31_I.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

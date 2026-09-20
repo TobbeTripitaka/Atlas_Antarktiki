@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:36:36
+Date: 2026-09-14 13:26:57
 Source Raster: atlas/2_general/7_climate/24_solar_radiation_p_73-75/maps/P_73_I/P_73_I.tiff
-Target Raster: atlas/2_general/7_climate/24_solar_radiation_p_73-75/maps/P_73_I.tiff
+Target Raster: maps/7_climate/24_solar_radiation_p_73-75/P_73_I.tiff
 Tie Points: atlas/2_general/7_climate/24_solar_radiation_p_73-75/maps/P_73_I/P_73_I.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

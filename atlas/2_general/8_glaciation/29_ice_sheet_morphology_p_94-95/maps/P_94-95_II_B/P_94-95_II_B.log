@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:37:10
+Date: 2026-09-14 13:27:30
 Source Raster: atlas/2_general/8_glaciation/29_ice_sheet_morphology_p_94-95/maps/P_94-95_II_B/P_94-95_II_B.tiff
-Target Raster: atlas/2_general/8_glaciation/29_ice_sheet_morphology_p_94-95/maps/P_94-95_II_B.tiff
+Target Raster: maps/8_glaciation/29_ice_sheet_morphology_p_94-95/P_94-95_II_B.tiff
 Tie Points: atlas/2_general/8_glaciation/29_ice_sheet_morphology_p_94-95/maps/P_94-95_II_B/P_94-95_II_B.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

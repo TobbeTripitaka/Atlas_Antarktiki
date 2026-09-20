@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:34:43
+Date: 2026-09-14 13:25:06
 Source Raster: atlas/3_regional/13_southern_ocean/50_indian_sector_and_davis_sea_p_190-207/maps/P_201_IX_A/P_201_IX_A.tiff
-Target Raster: atlas/3_regional/13_southern_ocean/50_indian_sector_and_davis_sea_p_190-207/maps/P_201_IX_A.tiff
+Target Raster: maps/13_southern_ocean/50_indian_sector_and_davis_sea_p_190-207/P_201_IX_A.tiff
 Tie Points: atlas/3_regional/13_southern_ocean/50_indian_sector_and_davis_sea_p_190-207/maps/P_201_IX_A/P_201_IX_A.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

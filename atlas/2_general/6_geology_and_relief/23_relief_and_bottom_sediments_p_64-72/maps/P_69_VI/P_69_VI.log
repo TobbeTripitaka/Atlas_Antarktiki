@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:36:30
+Date: 2026-09-14 13:26:51
 Source Raster: atlas/2_general/6_geology_and_relief/23_relief_and_bottom_sediments_p_64-72/maps/P_69_VI/P_69_VI.tiff
-Target Raster: atlas/2_general/6_geology_and_relief/23_relief_and_bottom_sediments_p_64-72/maps/P_69_VI.tiff
+Target Raster: maps/6_geology_and_relief/23_relief_and_bottom_sediments_p_64-72/P_69_VI.tiff
 Tie Points: atlas/2_general/6_geology_and_relief/23_relief_and_bottom_sediments_p_64-72/maps/P_69_VI/P_69_VI.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:31:49
+Date: 2026-09-14 13:22:11
 Source Raster: atlas/2_general/9_waters_of_the_southern_ocean/33_current_systems_p_103-107/maps/P_106-107_VIIb/P_106-107_VIIb.tiff
-Target Raster: atlas/2_general/9_waters_of_the_southern_ocean/33_current_systems_p_103-107/maps/P_106-107_VIIb.tiff
+Target Raster: maps/9_waters_of_the_southern_ocean/33_current_systems_p_103-107/P_106-107_VIIb.tiff
 Tie Points: atlas/2_general/9_waters_of_the_southern_ocean/33_current_systems_p_103-107/maps/P_106-107_VIIb/P_106-107_VIIb.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

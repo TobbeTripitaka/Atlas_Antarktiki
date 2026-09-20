@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:35:57
+Date: 2026-09-14 13:26:19
 Source Raster: atlas/2_general/5_aeronomy_and_physics_of_the_earth/20_gravity_measurements_p_49-54/maps/P_49-50_IIb/P_49-50_IIb.tiff
-Target Raster: atlas/2_general/5_aeronomy_and_physics_of_the_earth/20_gravity_measurements_p_49-54/maps/P_49-50_IIb.tiff
+Target Raster: maps/5_aeronomy_and_physics_of_the_earth/20_gravity_measurements_p_49-54/P_49-50_IIb.tiff
 Tie Points: atlas/2_general/5_aeronomy_and_physics_of_the_earth/20_gravity_measurements_p_49-54/maps/P_49-50_IIb/P_49-50_IIb.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

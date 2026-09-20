@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:34:12
+Date: 2026-09-14 13:24:34
 Source Raster: atlas/2_general/4_general_maps/10_antarctic_continent_p_19-20/maps/P_19-20_IIIa/P_19-20_IIIa.tiff
-Target Raster: atlas/2_general/4_general_maps/10_antarctic_continent_p_19-20/maps/P_19-20_IIIa.tiff
+Target Raster: maps/4_general_maps/10_antarctic_continent_p_19-20/P_19-20_IIIa.tiff
 Tie Points: atlas/2_general/4_general_maps/10_antarctic_continent_p_19-20/maps/P_19-20_IIIa/P_19-20_IIIa.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

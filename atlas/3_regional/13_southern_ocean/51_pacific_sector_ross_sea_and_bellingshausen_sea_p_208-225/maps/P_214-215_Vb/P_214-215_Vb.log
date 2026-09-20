@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:35:12
+Date: 2026-09-14 13:25:34
 Source Raster: atlas/3_regional/13_southern_ocean/51_pacific_sector_ross_sea_and_bellingshausen_sea_p_208-225/maps/P_214-215_Vb/P_214-215_Vb.tiff
-Target Raster: atlas/3_regional/13_southern_ocean/51_pacific_sector_ross_sea_and_bellingshausen_sea_p_208-225/maps/P_214-215_Vb.tiff
+Target Raster: maps/13_southern_ocean/51_pacific_sector_ross_sea_and_bellingshausen_sea_p_208-225/P_214-215_Vb.tiff
 Tie Points: atlas/3_regional/13_southern_ocean/51_pacific_sector_ross_sea_and_bellingshausen_sea_p_208-225/maps/P_214-215_Vb/P_214-215_Vb.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

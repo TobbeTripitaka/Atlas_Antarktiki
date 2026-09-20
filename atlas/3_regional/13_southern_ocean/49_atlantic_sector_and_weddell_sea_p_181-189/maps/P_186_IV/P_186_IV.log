@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:34:05
+Date: 2026-09-14 13:24:28
 Source Raster: atlas/3_regional/13_southern_ocean/49_atlantic_sector_and_weddell_sea_p_181-189/maps/P_186_IV/P_186_IV.tiff
-Target Raster: atlas/3_regional/13_southern_ocean/49_atlantic_sector_and_weddell_sea_p_181-189/maps/P_186_IV.tiff
+Target Raster: maps/13_southern_ocean/49_atlantic_sector_and_weddell_sea_p_181-189/P_186_IV.tiff
 Tie Points: atlas/3_regional/13_southern_ocean/49_atlantic_sector_and_weddell_sea_p_181-189/maps/P_186_IV/P_186_IV.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

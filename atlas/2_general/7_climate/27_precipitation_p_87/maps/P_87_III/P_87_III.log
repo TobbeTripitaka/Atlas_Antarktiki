@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:36:59
+Date: 2026-09-14 13:27:20
 Source Raster: atlas/2_general/7_climate/27_precipitation_p_87/maps/P_87_III/P_87_III.tiff
-Target Raster: atlas/2_general/7_climate/27_precipitation_p_87/maps/P_87_III.tiff
+Target Raster: maps/7_climate/27_precipitation_p_87/P_87_III.tiff
 Tie Points: atlas/2_general/7_climate/27_precipitation_p_87/maps/P_87_III/P_87_III.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic

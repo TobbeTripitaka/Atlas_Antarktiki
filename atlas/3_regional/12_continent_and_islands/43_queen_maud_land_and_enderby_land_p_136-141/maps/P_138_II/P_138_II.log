@@ -1,9 +1,9 @@
 ================================================================================
 GEOREFERENCING REPORT
 ================================================================================
-Date: 2026-09-09 22:32:38
+Date: 2026-09-14 13:23:02
 Source Raster: atlas/3_regional/12_continent_and_islands/43_queen_maud_land_and_enderby_land_p_136-141/maps/P_138_II/P_138_II.tiff
-Target Raster: atlas/3_regional/12_continent_and_islands/43_queen_maud_land_and_enderby_land_p_136-141/maps/P_138_II.tiff
+Target Raster: maps/12_continent_and_islands/43_queen_maud_land_and_enderby_land_p_136-141/P_138_II.tiff
 Tie Points: atlas/3_regional/12_continent_and_islands/43_queen_maud_land_and_enderby_land_p_136-141/maps/P_138_II/P_138_II.gpkg
 
 Source CRS (pixel lookup): EPSG:3031 — WGS 84 / Antarctic Polar Stereographic
